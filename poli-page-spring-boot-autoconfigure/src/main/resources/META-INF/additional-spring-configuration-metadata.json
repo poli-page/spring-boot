@@ -1,0 +1,47 @@
+{
+  "properties": [
+    {
+      "name": "poli-page.api-key",
+      "type": "java.lang.String",
+      "description": "Your Poli Page API key. Must start with pp_test_ or pp_live_. Find one at https://poli.page/dashboard/keys."
+    },
+    {
+      "name": "poli-page.base-url",
+      "type": "java.net.URI",
+      "description": "Base URL of the Poli Page API. Override for staging or self-hosted deployments. Defaults to the SDK's own default (https://api.poli.page) when unset."
+    },
+    {
+      "name": "poli-page.request-timeout",
+      "type": "java.time.Duration",
+      "description": "Per-attempt request timeout. Falls back to the SDK's default (60 s) when unset."
+    },
+    {
+      "name": "poli-page.retries.max-attempts",
+      "type": "java.lang.Integer",
+      "description": "Number of retries on top of the initial request. Set to 0 to disable retries. Falls back to the SDK's default (2) when unset."
+    },
+    {
+      "name": "poli-page.retries.delay",
+      "type": "java.time.Duration",
+      "description": "Base delay for the SDK's exponential backoff (jitter and Retry-After capping happen inside the SDK). Falls back to the SDK's default (500 ms) when unset."
+    },
+    {
+      "name": "poli-page.health.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether to register the Actuator HealthIndicator probing /v1/health. Defaults to true.",
+      "defaultValue": true
+    },
+    {
+      "name": "poli-page.metrics.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether to register the Micrometer MeterBinder publishing retry/error counters and the up gauge. Defaults to true.",
+      "defaultValue": true
+    },
+    {
+      "name": "poli-page.events.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether to bridge the SDK's onRetry/onError hooks to Spring ApplicationEvent. Defaults to true.",
+      "defaultValue": true
+    }
+  ]
+}

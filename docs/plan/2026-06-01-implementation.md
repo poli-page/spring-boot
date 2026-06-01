@@ -122,7 +122,7 @@ green; tests will light up in subsequent tasks.
 
 Use `ApplicationContextRunner` with `withPropertyValues(...)` and assert `applicationContext.getStartupFailure()`.
 
-- [ ] **Step 2.2: GREEN** — author `PoliPageProperties` per spec §6 (record + nested records, `@NotBlank`, `@Pattern`, `@DurationMin`, `@DurationMax`, `@Min`, `@Max`).
+- [ ] **Step 2.2: GREEN** — author `PoliPageProperties` per spec §6 (record + nested records, `@NotBlank`, `@Pattern`, `@DurationRange` (small custom constraint declared by the starter — Spring Boot has no Duration-range annotation), `@Min`, `@Max`).
 
 - [ ] **Step 2.3: Configuration metadata** — write `META-INF/spring-configuration-metadata.json` with descriptions and default values per spec §6.3. IDE auto-completion verified manually in IntelliJ.
 

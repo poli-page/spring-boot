@@ -39,7 +39,7 @@ public record PoliPageProperties(
                   "Get one at https://poli.page/dashboard/keys.")
     String apiKey,
     @Nullable URI baseUrl,
-    @Nullable @DurationMin(seconds = 1) @DurationMax(seconds = 600) Duration requestTimeout,
+    @Nullable @DurationRange(minMillis = 1_000L, maxMillis = 600_000L) Duration requestTimeout,
     @NotNull Retries retries,
     @NotNull Health health,
     @NotNull Metrics metrics,
@@ -47,7 +47,7 @@ public record PoliPageProperties(
 ) {
     public record Retries(
         @Nullable @Min(0) @Max(10) Integer maxAttempts,
-        @Nullable @DurationMin(millis = 0) @DurationMax(seconds = 30) Duration delay
+        @Nullable @DurationRange(minMillis = 0L, maxMillis = 30_000L) Duration delay
     ) {}
     public record Health(boolean enabled) {}
     public record Metrics(boolean enabled) {}
@@ -134,8 +134,8 @@ This is the path that catches the #1 misconfiguration: pasting a dashboard token
 
 Other validations:
 
-- `request-timeout: 0s` → `DurationMin` rejection ("must be greater than or equal to PT1S").
-- `request-timeout: 700s` → `DurationMax` rejection ("must be less than or equal to PT10M").
+- `request-timeout: 0s` → `DurationRange` rejection ("must be a Duration between 1000 ms and 600000 ms").
+- `request-timeout: 700s` → same `DurationRange` rejection (700000 ms exceeds the 600000 ms upper bound).
 - `retries.max-attempts: -1` → `Min` rejection.
 - `retries.max-attempts: 11` → `Max` rejection.
 
@@ -181,7 +181,7 @@ For production, use the bootstrap configuration mechanism your platform already 
 - **`base-url` must be absolute.** A relative URI like `/v1` is silently invalid; the autoconfig throws `IllegalArgumentException` from the SDK builder. Set the full origin: `https://api.poli.page` (no trailing path).
 - **Boolean toggles default to `true`.** `poli-page.health.enabled`, `poli-page.metrics.enabled`, `poli-page.events.enabled` are all opt-out, not opt-in. Omitting them is equivalent to `true` — flip to `false` to disable the corresponding bean.
 - **Relaxed binding case is environment-specific.** Linux env vars are case-sensitive (`POLI_PAGE_API_KEY` only); Windows is not. Stick with UPPER_SNAKE_CASE for env vars to keep platforms aligned.
-- **`@DurationMin` / `@DurationMax` annotations are Spring Boot-specific.** They live in `org.springframework.boot.convert`. Don't reach for Jakarta Validation equivalents — they don't exist.
+- **`@DurationRange` is shipped by the starter, not by Spring Boot.** Spring Boot offers no Duration-range constraint. The starter declares `page.poli.sdk.spring.validation.DurationRange` (~40 lines) so the properties record can validate duration bounds at startup. The annotation accepts `minMillis` / `maxMillis` parameters so any Duration unit in `application.yml` (`s`, `m`, `h`) is honoured consistently.
 - **Properties aren't refreshable.** The autoconfig reads `PoliPageProperties` once at startup. Spring Cloud Config's `@RefreshScope` is not wired in v0.1 (deferred to a future release); changing `api-key` at runtime requires an application restart.
 
 ## Related

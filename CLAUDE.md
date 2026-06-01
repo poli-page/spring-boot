@@ -107,9 +107,13 @@ Local mirror:
 
 ## 9. SDK dependency note
 
-`page.poli:sdk` is **already published on Maven Central** (v1.0.0). The default Gradle resolution path is Central, no workaround needed.
+`page.poli:sdk` is **not yet on Maven Central** as of 2026-06-01. Current version is `1.0.0-SNAPSHOT`, only available via `~/.m2/repository/` after a local `mvn install`. The starter's autoconfigure module pins this snapshot version explicitly.
 
-For testing against unreleased SDK changes, use `mavenLocal()` — sdk-java is a Maven project so Gradle's `includeBuild` composite mechanism does not apply. Run `./mvnw install -DskipTests` inside `/Users/mickael/Projects/sdk-java/` to publish the local snapshot to `~/.m2/repository/`; the root `build.gradle.kts` lists `mavenLocal()` before `mavenCentral()` so Gradle resolves the local copy first. This costs zero changes to the published `.pom` — consumers always see the Central coordinate.
+The dev workflow: `cd /Users/mickael/Projects/sdk-java/ && ./mvnw install -DskipTests` publishes the snapshot locally; the root `build.gradle.kts` lists `mavenLocal()` before `mavenCentral()` so Gradle picks it up. (Gradle's `includeBuild` composite mechanism is NOT usable here — sdk-java is a Maven project, not a Gradle project, so they cannot be composed.)
+
+When the SDK publishes `1.0.0` (or later) to Central:
+1. Bump the dependency in `poli-page-spring-boot-autoconfigure/build.gradle.kts` from `1.0.0-SNAPSHOT` to the release version.
+2. CI will resolve from Central instead of requiring the developer's local `~/.m2/`.
 
 ## 10. Known gotchas (battle-tested — don't relearn the hard way)
 

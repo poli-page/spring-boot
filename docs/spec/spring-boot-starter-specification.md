@@ -170,23 +170,26 @@ poli-page:
     enabled: true                              # toggle ApplicationEvent publication (default: true)
 ```
 
-Bound to a Java record:
+Bound to a Java record (excerpt — see `PoliPageProperties.java` for the full source):
 
 ```java
 @ConfigurationProperties("poli-page")
+@Validated
 public record PoliPageProperties(
-    String apiKey,
+    @NotBlank @Pattern(regexp = "^pp_(test|live)_.+$", message = "...") String apiKey,
     @Nullable URI baseUrl,
-    @Nullable Duration requestTimeout,
-    Retries retries,
-    Health health,
-    Metrics metrics,
-    Events events
+    @Nullable @DurationRange(minMillis = 1_000L, maxMillis = 600_000L) Duration requestTimeout,
+    @Valid @DefaultValue Retries retries,
+    @Valid @DefaultValue Health health,
+    @Valid @DefaultValue Metrics metrics,
+    @Valid @DefaultValue Events events
 ) {
-    public record Retries(@Nullable Integer maxAttempts, @Nullable Duration delay) {}
-    public record Health(boolean enabled) {}
-    public record Metrics(boolean enabled) {}
-    public record Events(boolean enabled) {}
+    public record Retries(
+        @Nullable @Min(0) @Max(10) Integer maxAttempts,
+        @Nullable @DurationRange(minMillis = 0L, maxMillis = 30_000L) Duration delay) {}
+    public record Health(@DefaultValue("true") boolean enabled) {}
+    public record Metrics(@DefaultValue("true") boolean enabled) {}
+    public record Events(@DefaultValue("true") boolean enabled) {}
 }
 ```
 
@@ -202,9 +205,9 @@ Properties are validated at startup via Spring's `@Validated` + Jakarta Bean Val
 
 - `api-key`: `@NotBlank`, **`@Pattern(regexp = "^pp_(test|live)_.+$")`** with message `"Poli Page API key must start with pp_test_ or pp_live_. Get one at https://poli.page/dashboard/keys."` — catches the #1 misconfiguration (pasting a dashboard token).
 - `base-url`: `@Nullable`, if set must be absolute (validated in autoconfig, not via annotation — `URI.isAbsolute()` is one line and clearer than a regex).
-- `request-timeout`: `@DurationMin(seconds = 1)` `@DurationMax(seconds = 600)` (annotations from `spring-boot`).
+- `request-timeout`: `@DurationRange(minMillis = 1_000L, maxMillis = 600_000L)` — 1 s to 10 min inclusive. `@DurationRange` is a small custom Jakarta Bean Validation constraint shipped by the starter at `page.poli.sdk.spring.validation.DurationRange` — Spring Boot itself ships no Duration-range constraint, so the starter declares its own.
 - `retries.max-attempts`: `@Min(0)` `@Max(10)`.
-- `retries.delay`: `@DurationMin(millis = 0)` `@DurationMax(seconds = 30)`.
+- `retries.delay`: `@DurationRange(minMillis = 0L, maxMillis = 30_000L)`.
 
 Failed validation surfaces at startup as `BindValidationException` — the application does not boot. This matches how `spring-boot-starter-data-jpa` handles invalid `spring.datasource` properties.
 
@@ -754,7 +757,7 @@ Capturing the "why we chose X" so future-agents don't relitigate:
 | Spring Boot version range | `3.2.x \|\| 3.3.x \|\| 3.4.x` | Boot 2.7 OSS support ended Nov 2024. 3.2 is the floor (Jackson 2.16). 3.4 is the LTS-track current. |
 | MVC vs WebFlux | Separate starter artifacts, shared autoconfig module | Springdoc and Sentry both do this. Single application picks one stack; bundling both into one starter would force a dependency on the wrong web stack. |
 | Properties shape | Java record with nested records | Spring Boot 3 has first-class record support for `@ConfigurationProperties`. Concise, immutable, IDE-friendly. |
-| Validation | Jakarta Bean Validation via `@Validated` + `@NotBlank`/`@Pattern`/`@DurationMin`/`@DurationMax` | Spring Boot's recommended path; surfaces failures at startup, not at first call. |
+| Validation | Jakarta Bean Validation via `@Validated` + `@NotBlank`/`@Pattern`/`@Min`/`@Max` + a small custom `@DurationRange` constraint | Spring Boot's recommended path; surfaces failures at startup, not at first call. Spring Boot ships no Duration-range constraint, so the starter declares one (~40 lines). |
 | Event publishing | `ApplicationEventPublisher` + `extends ApplicationEvent` | Idiomatic Spring; `@EventListener` consumer surface is well-understood. `PayloadApplicationEvent` is for generic carriers — concrete classes give better type-safety. |
 | Bean override | `@ConditionalOnMissingBean` on every starter-provided bean | Standard Spring Boot starter contract; a consumer who defines their own `@Bean PoliPageClient` takes full control. |
 | Properties prefix | `poli-page` (kebab-case) | Spring Boot's idiomatic relaxed binding — works with `POLI_PAGE_API_KEY` env vars and `poliPage.apiKey` Java property names alike. |
