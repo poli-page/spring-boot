@@ -8,6 +8,8 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import page.poli.sdk.PoliPageClient;
+import page.poli.sdk.spring.actuator.PoliPageHealthIndicator;
+import page.poli.sdk.spring.metrics.PoliPageMetrics;
 
 class PoliPageAutoConfigurationTest {
 
@@ -64,6 +66,34 @@ class PoliPageAutoConfigurationTest {
               // Client still wires correctly without the bridge.
               assertThat(context).hasSingleBean(PoliPageClient.class);
             });
+  }
+
+  @Test
+  void registersHealthIndicatorByDefault() {
+    runner
+        .withPropertyValues("poli-page.api-key=pp_test_x")
+        .run(context -> assertThat(context).hasSingleBean(PoliPageHealthIndicator.class));
+  }
+
+  @Test
+  void omitsHealthIndicatorWhenDisabled() {
+    runner
+        .withPropertyValues("poli-page.api-key=pp_test_x", "poli-page.health.enabled=false")
+        .run(context -> assertThat(context).doesNotHaveBean(PoliPageHealthIndicator.class));
+  }
+
+  @Test
+  void registersMetricsByDefault() {
+    runner
+        .withPropertyValues("poli-page.api-key=pp_test_x")
+        .run(context -> assertThat(context).hasSingleBean(PoliPageMetrics.class));
+  }
+
+  @Test
+  void omitsMetricsWhenDisabled() {
+    runner
+        .withPropertyValues("poli-page.api-key=pp_test_x", "poli-page.metrics.enabled=false")
+        .run(context -> assertThat(context).doesNotHaveBean(PoliPageMetrics.class));
   }
 
   @Test

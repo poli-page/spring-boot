@@ -1,6 +1,8 @@
 package page.poli.sdk.spring;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.actuate.health.HealthIndicator;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -8,7 +10,10 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import page.poli.sdk.PoliPageClient;
+import page.poli.sdk.spring.actuator.PoliPageHealthIndicator;
+import page.poli.sdk.spring.metrics.PoliPageMetrics;
 
 /**
  * Auto-configuration for the Poli Page SDK client.
@@ -61,5 +66,37 @@ public class PoliPageAutoConfiguration {
           builder.onError(eb::onError);
         });
     return builder.build();
+  }
+
+  /**
+   * Nested actuator wiring. Activates only when Spring Boot Actuator is on the classpath and the
+   * health indicator is not explicitly disabled.
+   */
+  @Configuration(proxyBeanMethods = false)
+  @ConditionalOnClass(HealthIndicator.class)
+  @ConditionalOnProperty(prefix = "poli-page.health", name = "enabled", matchIfMissing = true)
+  static class HealthIndicatorConfiguration {
+
+    @Bean(name = "poliPage")
+    @ConditionalOnMissingBean(name = "poliPage")
+    public PoliPageHealthIndicator poliPageHealthIndicator(PoliPageProperties properties) {
+      return new PoliPageHealthIndicator(properties);
+    }
+  }
+
+  /**
+   * Nested Micrometer wiring. Activates only when Micrometer is on the classpath and metrics are
+   * not explicitly disabled.
+   */
+  @Configuration(proxyBeanMethods = false)
+  @ConditionalOnClass(MeterRegistry.class)
+  @ConditionalOnProperty(prefix = "poli-page.metrics", name = "enabled", matchIfMissing = true)
+  static class MetricsConfiguration {
+
+    @Bean
+    @ConditionalOnMissingBean
+    public PoliPageMetrics poliPageMetrics() {
+      return new PoliPageMetrics();
+    }
   }
 }

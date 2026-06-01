@@ -4,7 +4,7 @@
 
 ## Why
 
-Spring Boot Actuator is the industry-standard surface for "is this service healthy?" The starter contributes a `HealthIndicator` named `poliPage` and a `MeterBinder` registering four meters with bounded tag cardinality. Both are conditional — gated on Actuator/Micrometer being on the classpath and on opt-out properties — so they cost nothing if you don't use them.
+Spring Boot Actuator is the industry-standard surface for "is this service healthy?" The starter contributes a `HealthIndicator` named `poliPage` and a `MeterBinder` registering three meters with bounded tag cardinality. Both are conditional — gated on Actuator/Micrometer being on the classpath and on opt-out properties — so they cost nothing if you don't use them.
 
 The health indicator hits a dedicated lightweight `GET /v1/health` endpoint on the Poli Page platform. It never invokes `render(...)` for the probe — that would consume your API quota and a real render budget for every Kubernetes readiness check.
 
@@ -98,14 +98,15 @@ Either silences the `poliPage` component. The starter's `@ConditionalOnProperty(
 
 ## Metrics
 
-Adding `spring-boot-starter-actuator` automatically pulls in `micrometer-core`. The starter's `PoliPageMetrics` `MeterBinder` registers four meters:
+Adding `spring-boot-starter-actuator` automatically pulls in `micrometer-core`. The starter's `PoliPageMetrics` `MeterBinder` registers three meters:
 
 | Meter | Type | Tags | Source |
 |---|---|---|---|
 | `poli.page.retries.total` | Counter | `attempt`, `reason` | Incremented per `PoliPageRetryEvent`. |
 | `poli.page.retries.delay` | Timer | `attempt`, `reason` | Records each retry's `delay` Duration. |
 | `poli.page.errors.total` | Counter | `code`, `status_class` (`4xx`/`5xx`/`network`) | Incremented per `PoliPageErrorEvent`. |
-| `poli.page.client.up` | Gauge | — | Mirrors the HealthIndicator (`1.0` UP, `0.0` DOWN). |
+
+A `poli.page.client.up` gauge was specified in the v0.1 design but deferred to v0.2 — implementing it correctly would require polling `/v1/health` on every Prometheus scrape, or maintaining a `@Scheduled` cache refresh. Operators get the same up/down signal by scraping `/actuator/health` directly via Prometheus's HTTP probe.
 
 ### Tag cardinality
 
@@ -131,9 +132,6 @@ poli_page_retries_total{application="my-app",attempt="2",reason="5xx"} 1.0
 # TYPE poli_page_errors_total counter
 poli_page_errors_total{application="my-app",code="rate_limited",status_class="4xx"} 2.0
 
-# HELP poli_page_client_up
-# TYPE poli_page_client_up gauge
-poli_page_client_up{application="my-app"} 1.0
 ```
 
 ### Disabling metrics
@@ -160,18 +158,15 @@ sum by (status_class) (rate(poli_page_errors_total[5m]))
 # 95th percentile retry delay (across all reasons)
 histogram_quantile(0.95, sum by (le) (rate(poli_page_retries_delay_seconds_bucket[5m])))
 
-# Alert: client unhealthy for more than 2 minutes
-poli_page_client_up == 0
-  for: 2m
 ```
 
-A reasonable starting alerting policy: page on `poli_page_client_up == 0 for 5m` (the API has been unreachable long enough to be more than a transient blip) and on `rate(poli_page_errors_total{status_class="5xx"}[10m]) > 0.5` (sustained 5xx).
+A reasonable starting alerting policy: scrape `/actuator/health` via Prometheus's HTTP probe and alert on `probe_success == 0 for 5m` (the API has been unreachable long enough to be more than a transient blip), plus `rate(poli_page_errors_total{status_class="5xx"}[10m]) > 0.5` (sustained 5xx).
 
 ## Gotchas
 
 - **The health endpoint hits a real network resource.** With a 2-second timeout per probe, a heavily-loaded Kubernetes cluster doing aggressive readiness checks can exert noticeable load on the Poli Page edge — and a flapping network between your app and `api.poli.page` will flip the status. Use the `readiness` group, not `liveness`, so Kubernetes removes the pod from the LB without restarting it.
 - **`show-details` defaults to `never` outside dev.** Production endpoints typically run with `management.endpoint.health.show-details: when_authorized` — the `details.error` field showing the JDK exception class only surfaces for authenticated callers. Worth ensuring the operator dashboard authenticates.
-- **`poli.page.client.up` is not the same as `/actuator/health`'s `UP`/`DOWN`.** The gauge is sampled on the Micrometer schedule (typically 60 s), the HealthIndicator on demand at each `/actuator/health` probe. For tight alerting fidelity, scrape `/actuator/health` directly via Prometheus's HTTP probe rather than relying on the gauge.
+- **There is no `up` gauge in v0.1.** The original design called for one but it was deferred — see the note in the metrics section above. Use the Prometheus HTTP probe against `/actuator/health` for the up/down signal.
 - **Tag cardinality stays low only if you don't add tags downstream.** Resist the temptation to add `documentId` or `templateSlug` as tags via a custom `@EventListener` — that explodes Prometheus's storage.
 - **Health and metrics are independent toggles.** `poli-page.health.enabled=false` does not disable metrics, and `poli-page.metrics.enabled=false` does not disable health. Each subsystem has its own switch.
 

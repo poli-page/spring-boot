@@ -540,14 +540,15 @@ Belongs to the `liveness` group only — if Poli Page is down, the user's app is
 
 ## 12. Micrometer metrics
 
-`PoliPageMetrics` registers four meters when a `MeterRegistry` bean is on the classpath:
+`PoliPageMetrics` registers three meters when a `MeterRegistry` bean is on the classpath:
 
 | Meter name | Type | Tags | Source |
 |---|---|---|---|
 | `poli.page.retries.total` | `Counter` | `attempt`, `reason` | Incremented from `PoliPageRetryEvent` listener inside the metrics bean. |
-| `poli.page.retries.delay` | `Timer.builder().publishPercentiles(...)` | `attempt`, `reason` | Records the `event.delay()` from each retry event. |
+| `poli.page.retries.delay` | `Timer` | `attempt`, `reason` | Records the `event.delay()` from each retry event. |
 | `poli.page.errors.total` | `Counter` | `code`, `status_class` (`4xx`/`5xx`/`network`) | Incremented from `PoliPageErrorEvent` listener. |
-| `poli.page.client.up` | `Gauge` | (none) | Mirrors the `HealthIndicator` (1 = up, 0 = down). |
+
+**Note on the deferred `poli.page.client.up` gauge**: the original v0.1 design called for a fourth meter mirroring the HealthIndicator. Implementing it correctly would mean either polling `/v1/health` on every Prometheus scrape (potentially per-pod-per-15s — non-trivial load on the Poli Page edge) or maintaining a cached state behind a `@Scheduled` refresh. Both are real work that the v0.1 release does not require: operators get the same up/down signal by scraping `/actuator/health` directly via the Prometheus HTTP probe. Deferred to v0.2.
 
 Tag cardinality is bounded: `reason` is one of four known SDK values, `code` is one of the ~9 sealed exception subclasses' codes, `status_class` is one of three buckets. Safe for Prometheus.
 
