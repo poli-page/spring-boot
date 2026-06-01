@@ -12,6 +12,8 @@ Official Spring Boot 3 starter for [Poli Page](https://poli.page) — auto-confi
 
 ## Install
 
+> **Pre-release note**: as of `0.1.0-SNAPSHOT`, neither this starter nor the underlying [`page.poli:sdk`](https://github.com/poli-page/sdk-java) is on Maven Central yet. Until the first stable release, both need to be installed locally via `./mvnw install` (SDK) and `./gradlew publishToMavenLocal` (starter). The coordinates below are what consumers will use once both publish to Central.
+
 Maven:
 
 ```xml

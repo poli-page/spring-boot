@@ -34,7 +34,7 @@
     {
       "name": "poli-page.metrics.enabled",
       "type": "java.lang.Boolean",
-      "description": "Whether to register the Micrometer MeterBinder publishing retry/error counters and the up gauge. Defaults to true.",
+      "description": "Whether to register the Micrometer MeterBinder publishing retry counters/timers and error counters. Defaults to true.",
       "defaultValue": true
     },
     {
