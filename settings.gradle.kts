@@ -15,6 +15,8 @@ include(
     "poli-page-spring-boot-autoconfigure",
     "poli-page-spring-boot-starter",
     "poli-page-spring-boot-starter-webflux",
+    "example-app:mvc",
+    "example-app:webflux",
 )
 
 // SDK dev-override note (Why: sdk-java is a Maven project, so Gradle's includeBuild
