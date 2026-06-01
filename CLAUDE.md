@@ -109,7 +109,7 @@ Local mirror:
 
 `page.poli:sdk` is **already published on Maven Central** (v1.0.0). The default Gradle resolution path is Central, no workaround needed.
 
-For testing against unreleased SDK changes, use Gradle's composite build mechanism (`settings.gradle.kts` has a guarded `includeBuild("../sdk-java")` block that resolves to the local source when present, otherwise falls through to Central). This costs zero changes to the published `.pom` — consumers always see the Central coordinate.
+For testing against unreleased SDK changes, use `mavenLocal()` — sdk-java is a Maven project so Gradle's `includeBuild` composite mechanism does not apply. Run `./mvnw install -DskipTests` inside `/Users/mickael/Projects/sdk-java/` to publish the local snapshot to `~/.m2/repository/`; the root `build.gradle.kts` lists `mavenLocal()` before `mavenCentral()` so Gradle resolves the local copy first. This costs zero changes to the published `.pom` — consumers always see the Central coordinate.
 
 ## 10. Known gotchas (battle-tested — don't relearn the hard way)
 

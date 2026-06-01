@@ -44,18 +44,7 @@ curl -sf -o /dev/null https://repo1.maven.org/maven2/page/poli/sdk/1.0.0/sdk-1.0
   && echo "SDK published" || echo "SDK NOT YET PUBLISHED — see workaround note below"
 ```
 
-If the SDK has shipped, depend on it normally from Central. If not, the starter consumes it via the included Gradle build:
-
-```kotlin
-// settings.gradle.kts
-includeBuild("../sdk-java") {
-    dependencySubstitution {
-        substitute(module("page.poli:sdk")).using(project(":"))
-    }
-}
-```
-
-This works locally and in CI (see Task 1.4); when the SDK publishes, delete the `includeBuild` block.
+If the SDK has shipped, depend on it normally from Central. If not, override via `mavenLocal()` — sdk-java is a Maven project, so Gradle's `includeBuild` composite mechanism does not apply. The pattern: run `./mvnw install -DskipTests` inside `../sdk-java/` to publish the local snapshot to `~/.m2/repository/`, then the root `build.gradle.kts`'s `mavenLocal()` repository (listed before `mavenCentral()`) picks it up. CI does not need the override because Central already serves `1.0.0`.
 
 ---
 

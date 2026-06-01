@@ -1,0 +1,35 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/**/build/
+out/
+
+# IntelliJ / IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+
+# Eclipse
+.classpath
+.project
+.settings/
+bin/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local env
+.env
+.env.local
+*.local
+
+# Logs
+*.log
+logs/
+
+# Maven (only relevant if a downstream consumer runs `mvn` against the published .pom)
+target/
