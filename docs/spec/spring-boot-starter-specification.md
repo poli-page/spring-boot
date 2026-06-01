@@ -361,23 +361,32 @@ Reference implementation: Spring's `ContentDisposition.attachment().filename(nam
 ```java
 public final class PoliPageReactiveResponses {
 
+    public PoliPageReactiveResponses(DataBufferFactory bufferFactory);  // constructor-injected
+
+    public Mono<ResponseEntity<byte[]>> bytes(CompletableFuture<byte[]> future, String filename);
     public Mono<ResponseEntity<byte[]>> bytes(
         CompletableFuture<byte[]> future, String filename, boolean inline);
 
     public Mono<ResponseEntity<Flux<DataBuffer>>> stream(
-        CompletableFuture<InputStream> future, String filename, boolean inline,
-        DataBufferFactory bufferFactory);
+        CompletableFuture<InputStream> future, String filename);
+    public Mono<ResponseEntity<Flux<DataBuffer>>> stream(
+        CompletableFuture<InputStream> future, String filename, boolean inline);
 
-    public Mono<ResponseEntity<String>> preview(CompletableFuture<PreviewResult> future);
+    public Mono<ResponseEntity<String>> previewFromRender(
+        CompletableFuture<PreviewResult> future);
+    public Mono<ResponseEntity<String>> previewFromDocument(
+        CompletableFuture<DocumentPreviewResult> future);
 
     public Mono<ResponseEntity<Void>> documentRedirect(
         CompletableFuture<DocumentDescriptor> future);
 }
 ```
 
-Headers are identical to §8.2. The async-to-reactive bridge uses `Mono.fromFuture(future)` so cancellation propagates back to the underlying `CompletableFuture` via `Mono.fromFuture(..., true)` — the second-arg `suppressCancel = false` form, available since Reactor 3.5.
+Headers are identical to §8.2. The async-to-reactive bridge uses `Mono.fromFuture(future, false)` so cancellation propagates back to the underlying `CompletableFuture` via `cancel(true)`.
 
-`stream()` adapts the SDK's `InputStream` to a `Flux<DataBuffer>` via `DataBufferUtils.readInputStream(() -> stream, bufferFactory, 8192)`. The factory is injected because reactive servers may be Netty (`NettyDataBufferFactory`) or Reactor-Netty + custom allocators.
+`stream()` adapts the SDK's `InputStream` to a `Flux<DataBuffer>` via `DataBufferUtils.readInputStream(() -> stream, bufferFactory, 8192)`. The `DataBufferFactory` is **constructor-injected** rather than passed per call — `PoliPageWebFluxAutoConfiguration` autowires the reactive runtime's factory bean (Netty, Reactor-Netty, or `DefaultDataBufferFactory`) into the helper at startup.
+
+**Method-name note**: `previewFromRender` and `previewFromDocument` instead of overloaded `preview(...)` because Java type erasure collapses `CompletableFuture<PreviewResult>` and `CompletableFuture<DocumentPreviewResult>` to the same erased signature. The MVC `PoliPageResponses` *can* overload (the records have different runtime types at the call site); the reactive helper *cannot*.
 
 ---
 

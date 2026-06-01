@@ -109,7 +109,7 @@ The reactive helper has the same four-method surface as MVC:
 ```java
 @GetMapping("/{id}/preview")
 public Mono<ResponseEntity<String>> preview(@PathVariable String id) {
-    return responses.preview(client.documentsAsync().preview(id));
+    return responses.previewFromDocument(client.documentsAsync().preview(id));
 }
 
 @GetMapping("/{id}/download")
