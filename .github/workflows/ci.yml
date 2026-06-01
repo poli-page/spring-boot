@@ -18,22 +18,38 @@ jobs:
         java: ['17', '21']
         spring-boot: ['3.2.+', '3.3.+', '3.4.+']
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out spring-boot
+        uses: actions/checkout@v4
+        with:
+          path: spring-boot
+
+      - name: Check out sdk-java (sibling, for SNAPSHOT resolution via mavenLocal)
+        uses: actions/checkout@v4
+        with:
+          repository: poli-page/sdk-java
+          path: sdk-java
+          ref: main
 
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: ${{ matrix.java }}
 
+      - name: Install sdk-java to ~/.m2 (snapshot bootstrap)
+        working-directory: sdk-java
+        run: ./mvnw -B install -DskipTests
+
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Pin Spring Boot version
+        working-directory: spring-boot
         run: |
           if [ -f gradle.properties ]; then
             sed -i "s/^springBootVersion=.*/springBootVersion=${{ matrix.spring-boot }}/" gradle.properties
           fi
 
       - name: Build
+        working-directory: spring-boot
         run: |
           if [ -f settings.gradle.kts ]; then
             ./gradlew --no-daemon build
@@ -42,6 +58,7 @@ jobs:
           fi
 
       - name: Spotless check
+        working-directory: spring-boot
         run: |
           if [ -f build.gradle.kts ]; then
             ./gradlew --no-daemon spotlessCheck
@@ -54,16 +71,31 @@ jobs:
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out spring-boot
+        uses: actions/checkout@v4
+        with:
+          path: spring-boot
+
+      - name: Check out sdk-java (sibling, for SNAPSHOT resolution via mavenLocal)
+        uses: actions/checkout@v4
+        with:
+          repository: poli-page/sdk-java
+          path: sdk-java
+          ref: main
 
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
 
+      - name: Install sdk-java to ~/.m2 (snapshot bootstrap)
+        working-directory: sdk-java
+        run: ./mvnw -B install -DskipTests
+
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Integration test against develop API
+        working-directory: spring-boot
         env:
           POLI_PAGE_API_KEY: ${{ secrets.POLI_PAGE_DEVELOP_API_KEY }}
         run: |
