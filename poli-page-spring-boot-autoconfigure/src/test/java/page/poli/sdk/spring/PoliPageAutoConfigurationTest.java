@@ -45,6 +45,28 @@ class PoliPageAutoConfigurationTest {
   }
 
   @Test
+  void registersEventBridgeByDefault() {
+    runner
+        .withPropertyValues("poli-page.api-key=pp_test_x")
+        .run(
+            context -> {
+              assertThat(context).hasSingleBean(PoliPageEventBridge.class);
+            });
+  }
+
+  @Test
+  void omitsEventBridgeWhenEventsDisabled() {
+    runner
+        .withPropertyValues("poli-page.api-key=pp_test_x", "poli-page.events.enabled=false")
+        .run(
+            context -> {
+              assertThat(context).doesNotHaveBean(PoliPageEventBridge.class);
+              // Client still wires correctly without the bridge.
+              assertThat(context).hasSingleBean(PoliPageClient.class);
+            });
+  }
+
+  @Test
   void explicitPropertiesReachTheBuilder() {
     runner
         .withPropertyValues(
