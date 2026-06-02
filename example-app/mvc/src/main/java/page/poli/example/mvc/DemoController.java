@@ -26,266 +26,633 @@ public class DemoController {
       <html lang="en">
       <head>
       <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width,initial-scale=1">
-      <title>Poli Page · Spring Boot Starter Demo</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>Poli Page · starter demo</title>
       <link rel="preconnect" href="https://fonts.googleapis.com">
       <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-      <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
       <style>
         :root {
-          --indigo: #4f5d99;
-          --indigo-light: #e8ecf6;
-          --ink: #1f2937;
-          --muted: #6b7280;
-          --border: #e5e7eb;
-          --bg: #f9fafb;
-          --ok: #16a34a;
-          --warn: #ca8a04;
-          --err: #dc2626;
+          --bg: #ffffff;
+          --surface: #f7f8fb;
+          --surface-deep: #eef0f6;
+          --ink: #1a1d2e;
+          --ink-soft: #5e6577;
+          --ink-faint: #9aa0b0;
+          --hairline: #e5e7ef;
+          --hairline-strong: #cdd1dd;
+          --brand: #4f5d99;
+          --brand-deep: #3d4a7d;
+          --brand-soft: rgba(79, 93, 153, 0.08);
+          --brand-glow: rgba(79, 93, 153, 0.18);
+          --red: #c8472b;
+          --green: #3d8a3d;
+          --gutter: clamp(1.25rem, 4vw, 4.5rem);
+          --radius: 6px;
         }
-        * { box-sizing: border-box; }
-        html, body { margin: 0; padding: 0; }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html { background: var(--bg); }
         body {
-          font-family: 'IBM Plex Sans', system-ui, sans-serif;
-          color: var(--ink);
           background: var(--bg);
-          line-height: 1.5;
+          color: var(--ink);
+          font-family: 'IBM Plex Sans', system-ui, sans-serif;
+          font-weight: 400;
+          font-size: 15px;
+          line-height: 1.6;
+          -webkit-font-smoothing: antialiased;
+          text-rendering: optimizeLegibility;
+          min-height: 100vh;
         }
-        header {
-          background: white;
-          border-bottom: 1px solid var(--border);
-          padding: 24px 48px;
+
+        .page {
+          max-width: 1120px;
+          margin: 0 auto;
+          padding: 4rem var(--gutter) 6rem;
         }
-        header h1 { font-family: 'Manrope', sans-serif; font-weight: 700; margin: 0; font-size: 28px; }
-        header h1 .accent { color: var(--indigo); }
-        header .subtitle { color: var(--muted); margin-top: 4px; font-size: 14px; }
-        main { max-width: 1100px; margin: 32px auto; padding: 0 24px; display: grid; gap: 24px; }
-        .card {
-          background: white;
-          border: 1px solid var(--border);
-          border-radius: 8px;
-          padding: 24px;
+
+        /* ─── Masthead ─────────────────────────────────────────── */
+        header.mast {
+          text-align: center;
+          margin-bottom: 4.5rem;
+          padding-bottom: 3rem;
+          border-bottom: 1px solid var(--hairline);
         }
-        .card h2 {
+        .wordmark {
+          font-family: 'Manrope', sans-serif;
+          font-weight: 800;
+          font-size: clamp(2.5rem, 5.5vw, 3.75rem);
+          line-height: 1.05;
+          letter-spacing: -0.025em;
+          color: var(--ink);
+        }
+        .wordmark .brand { color: var(--brand); }
+        .tagline {
+          font-family: 'IBM Plex Sans', sans-serif;
+          font-style: italic;
+          font-weight: 400;
+          font-size: 1.05rem;
+          color: var(--ink-soft);
+          margin-top: 0.75rem;
+        }
+        .status-row {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.55rem;
+          margin-top: 1.5rem;
+          padding: 0.4rem 0.85rem;
+          background: var(--brand-soft);
+          border: 1px solid var(--brand-glow);
+          border-radius: 100px;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 0.72rem;
+          color: var(--brand-deep);
+          letter-spacing: 0.01em;
+        }
+        .status-row .dot {
+          width: 7px; height: 7px; border-radius: 50%;
+          background: var(--brand);
+          box-shadow: 0 0 0 3px rgba(79, 93, 153, 0.22);
+          animation: pulse 2.4s ease-in-out infinite;
+          flex-shrink: 0;
+        }
+        .status-row .sep { color: var(--ink-faint); }
+        @keyframes pulse {
+          0%, 100% { box-shadow: 0 0 0 3px rgba(79, 93, 153, 0.22); }
+          50%      { box-shadow: 0 0 0 6px rgba(79, 93, 153, 0.04); }
+        }
+
+        /* ─── Sections ─────────────────────────────────────────── */
+        section {
+          padding: 3rem 0;
+          border-top: 1px solid var(--hairline);
+          opacity: 0;
+          animation: rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+        }
+        section:nth-of-type(1) { animation-delay: 0.05s; border-top: none; padding-top: 0; }
+        section:nth-of-type(2) { animation-delay: 0.12s; }
+        section:nth-of-type(3) { animation-delay: 0.19s; }
+        section:nth-of-type(4) { animation-delay: 0.26s; }
+        @keyframes rise {
+          from { opacity: 0; transform: translateY(10px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+
+        section .head {
+          margin-bottom: 1.5rem;
+        }
+        section h2 {
           font-family: 'Manrope', sans-serif;
           font-weight: 700;
-          margin: 0 0 4px;
-          font-size: 18px;
-          color: var(--indigo);
+          font-size: 1.6rem;
+          letter-spacing: -0.018em;
+          line-height: 1.2;
+          color: var(--ink);
+          display: flex;
+          align-items: baseline;
+          gap: 0.7rem;
         }
-        .card .lede { color: var(--muted); margin: 0 0 16px; font-size: 14px; }
-        .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
-        button {
-          font: 500 14px 'IBM Plex Sans', system-ui, sans-serif;
-          background: var(--indigo);
-          color: white;
-          border: none;
-          padding: 8px 14px;
-          border-radius: 6px;
+        section h2 .label {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 0.7rem;
+          font-weight: 500;
+          color: var(--brand);
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          background: var(--brand-soft);
+          padding: 0.25rem 0.55rem;
+          border-radius: 4px;
+          line-height: 1;
+          align-self: center;
+        }
+        section .desc {
+          font-family: 'IBM Plex Sans', sans-serif;
+          font-style: italic;
+          color: var(--ink-soft);
+          font-size: 0.98rem;
+          max-width: 64ch;
+          margin-top: 0.4rem;
+        }
+        section .desc code {
+          font-family: 'JetBrains Mono', monospace;
+          font-style: normal;
+          font-size: 0.82em;
+          background: var(--surface);
+          border: 1px solid var(--hairline);
+          padding: 0.05em 0.4em;
+          border-radius: 3px;
+          color: var(--ink);
+        }
+
+        /* ─── Buttons ─────────────────────────────────────────── */
+        .actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.55rem;
+          margin-bottom: 1.5rem;
+        }
+        button.run {
+          font-family: 'Manrope', sans-serif;
+          font-weight: 600;
+          font-size: 0.84rem;
+          letter-spacing: -0.005em;
+          color: var(--ink);
+          background: var(--bg);
+          border: 1px solid var(--hairline-strong);
+          border-radius: var(--radius);
+          padding: 0.6rem 1rem 0.6rem 0.85rem;
           cursor: pointer;
-          transition: background 0.15s;
+          transition: all 0.18s cubic-bezier(0.2, 0.7, 0.2, 1);
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
         }
-        button:hover:not(:disabled) { background: #3d4a82; }
-        button:disabled { background: #d1d5db; cursor: not-allowed; }
-        button.ghost { background: white; color: var(--indigo); border: 1px solid var(--indigo); }
-        button.ghost:hover:not(:disabled) { background: var(--indigo-light); }
-        .preview-frame { width: 100%; min-height: 320px; border: 1px solid var(--border); border-radius: 6px; background: white; }
-        pre, code { font-family: 'JetBrains Mono', monospace; font-size: 13px; }
-        pre.output {
-          background: #f3f4f6;
-          padding: 12px;
-          border-radius: 6px;
-          margin: 0;
+        button.run::before {
+          content: '';
+          width: 6px; height: 6px;
+          border-radius: 50%;
+          background: var(--brand);
+          flex-shrink: 0;
+          transition: transform 0.18s, background 0.18s;
+        }
+        button.run:hover:not(:disabled) {
+          border-color: var(--brand);
+          background: var(--brand-soft);
+          color: var(--brand-deep);
+          transform: translateY(-1px);
+        }
+        button.run:hover:not(:disabled)::before {
+          transform: scale(1.35);
+        }
+        button.run:active:not(:disabled) { transform: translateY(0); }
+        button.run:disabled {
+          border-color: var(--hairline);
+          color: var(--ink-faint);
+          cursor: not-allowed;
+          background: var(--surface);
+        }
+        button.run:disabled::before { background: var(--ink-faint); }
+        button.run.is-loading {
+          border-color: var(--brand);
+          background: var(--brand);
+          color: white;
+          cursor: progress;
+        }
+        button.run.is-loading::before {
+          background: white;
+          animation: pulse-dot 0.9s ease-in-out infinite;
+        }
+        @keyframes pulse-dot {
+          0%, 100% { opacity: 0.4; transform: scale(1); }
+          50%      { opacity: 1; transform: scale(1.4); }
+        }
+
+        /* ─── Result panes ────────────────────────────────────── */
+        .result {
+          border: 1px solid var(--hairline);
+          background: var(--surface);
+          border-radius: var(--radius);
+          min-height: 4rem;
+          position: relative;
+          overflow: hidden;
+        }
+        .result .pane-label {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 0.5rem 0.85rem;
+          background: var(--bg);
+          border-bottom: 1px solid var(--hairline);
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 0.7rem;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          color: var(--ink-faint);
+        }
+        .result .pane-label .meta {
+          color: var(--ink-soft);
+          text-transform: none;
+          letter-spacing: 0;
+        }
+        .result.is-ok .pane-label { color: var(--brand); border-bottom-color: var(--brand-glow); }
+        .result.is-ok .pane-label .meta { color: var(--brand-deep); }
+        .result.is-error .pane-label { color: var(--red); border-bottom-color: rgba(200, 71, 43, 0.3); }
+        .result.is-error .pane-label .meta { color: var(--red); }
+
+        .result .empty {
+          padding: 2rem 1rem;
+          text-align: center;
+          color: var(--ink-faint);
+          font-style: italic;
+          font-size: 0.95rem;
+        }
+        .result iframe {
+          display: block;
+          width: 100%;
+          height: 600px;
+          border: 0;
+          background: white;
+        }
+        .result pre {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 0.78rem;
+          line-height: 1.6;
+          padding: 1.1rem 1rem;
           overflow-x: auto;
           color: var(--ink);
-          min-height: 24px;
           white-space: pre-wrap;
           word-break: break-all;
+          background: white;
         }
-        .doc-state {
-          margin: 12px 0;
-          font-size: 14px;
-          color: var(--muted);
+        .result.is-error pre { color: var(--red); background: rgba(200, 71, 43, 0.04); }
+
+        /* ─── Doc ID badge ────────────────────────────────────── */
+        .doc-id {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.55rem;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 0.78rem;
+          padding: 0.45rem 0.8rem;
+          background: var(--surface);
+          border: 1px solid var(--hairline);
+          border-radius: var(--radius);
+          margin-bottom: 1rem;
+          color: var(--ink-faint);
+          transition: all 0.2s;
         }
-        .doc-state code {
-          padding: 2px 8px;
-          background: var(--indigo-light);
-          color: var(--indigo);
-          border-radius: 4px;
-          font-weight: 500;
+        .doc-id.has-id { color: var(--ink); border-color: var(--brand-glow); background: var(--brand-soft); }
+        .doc-id .indicator {
+          width: 7px; height: 7px; border-radius: 50%;
+          background: var(--ink-faint);
         }
-        .thumbs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-        .thumbs img { border: 1px solid var(--border); border-radius: 4px; max-height: 200px; }
-        footer { text-align: center; color: var(--muted); padding: 32px; font-size: 13px; }
-        footer a { color: var(--indigo); text-decoration: none; }
-        .status { display: inline-block; font-size: 12px; padding: 1px 6px; border-radius: 4px; margin-left: 8px; }
-        .status.ok { background: #dcfce7; color: var(--ok); }
-        .status.err { background: #fee2e2; color: var(--err); }
+        .doc-id.has-id .indicator { background: var(--brand); box-shadow: 0 0 0 3px rgba(79, 93, 153, 0.18); }
+        .doc-id button.copy {
+          background: none;
+          border: none;
+          color: var(--brand-deep);
+          font-family: inherit;
+          font-size: 0.85em;
+          cursor: pointer;
+          padding: 0 0 0 0.3rem;
+          text-decoration: underline;
+          text-underline-offset: 2px;
+          text-decoration-thickness: 1px;
+          text-decoration-color: var(--brand-glow);
+        }
+        .doc-id button.copy:hover { color: var(--ink); text-decoration-color: var(--brand); }
+
+        /* ─── CLI block ───────────────────────────────────────── */
+        .cli {
+          border: 1px solid var(--hairline-strong);
+          background: #161827;
+          color: #d6d9e6;
+          padding: 1rem 1.1rem;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 0.78rem;
+          line-height: 1.7;
+          margin-bottom: 0.75rem;
+          border-radius: var(--radius);
+          position: relative;
+          overflow-x: auto;
+        }
+        .cli .prompt { color: #8b96d4; user-select: none; margin-right: 0.5rem; }
+        .cli button.copy {
+          position: absolute;
+          top: 0.55rem;
+          right: 0.55rem;
+          background: transparent;
+          border: 1px solid #2d3148;
+          color: #8b96d4;
+          font-family: inherit;
+          font-size: 0.7rem;
+          padding: 0.25rem 0.55rem;
+          border-radius: 3px;
+          cursor: pointer;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          transition: all 0.15s;
+        }
+        .cli button.copy:hover { background: #1f2236; color: white; border-color: var(--brand); }
+        .cli button.copy.copied { color: #b8c3ff; border-color: var(--brand); }
+
+        /* ─── Footer ──────────────────────────────────────────── */
+        footer {
+          margin-top: 5rem;
+          padding-top: 1.5rem;
+          border-top: 1px solid var(--hairline);
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 1rem;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 0.72rem;
+          color: var(--ink-faint);
+          letter-spacing: 0.04em;
+        }
+        footer .links a {
+          color: var(--brand-deep);
+          text-decoration: none;
+          border-bottom: 1px solid var(--brand-glow);
+          transition: border-color 0.15s;
+        }
+        footer .links a:hover { border-bottom-color: var(--brand); }
+
+        @media (max-width: 720px) {
+          .actions { flex-direction: column; align-items: stretch; }
+          button.run { justify-content: center; }
+          section h2 { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+        }
       </style>
       </head>
       <body>
-      <header>
-        <h1>Poli Page <span class="accent">Spring Boot</span> demo</h1>
-        <p class="subtitle">Ten SDK methods, one Spring Boot app. The starter wires <code>PoliPageClient</code> and the response helpers automatically.</p>
-      </header>
-      <main>
 
-        <section class="card">
-          <h2>1 · Render PDF (bytes)</h2>
-          <p class="lede"><code>client.render().pdf(input)</code> → <code>responses.bytes(pdf, "welcome.pdf", true)</code></p>
-          <div class="actions"><button data-render="pdf">Render</button><span id="pdf-status"></span></div>
-          <iframe id="pdf-frame" class="preview-frame" srcdoc="<em style='color:#6b7280;font-family:sans-serif;padding:12px;display:block'>Click <strong>Render</strong> above</em>"></iframe>
-        </section>
+      <div class="page">
 
-        <section class="card">
-          <h2>2 · Render PDF (streamed)</h2>
-          <p class="lede"><code>client.render().pdfStream(input)</code> → <code>responses.stream(...)</code> using <code>StreamingResponseBody</code></p>
-          <div class="actions"><button data-render="stream">Render streamed</button><span id="stream-status"></span></div>
-          <iframe id="stream-frame" class="preview-frame" srcdoc="<em style='color:#6b7280;font-family:sans-serif;padding:12px;display:block'>Click above to stream</em>"></iframe>
-        </section>
-
-        <section class="card">
-          <h2>3 · Render to file (CLI runner)</h2>
-          <p class="lede"><code>client.renderToFile(input, path)</code> — invoked at app boot when launched with <code>--render-to-file=PATH</code>. Not exposed via HTTP.</p>
-          <pre class="output">./gradlew :example-app:mvc:bootRun --args='--render-to-file=./welcome.pdf'</pre>
-        </section>
-
-        <section class="card">
-          <h2>4 · HTML preview</h2>
-          <p class="lede"><code>client.render().preview(input)</code> → <code>responses.preview(preview)</code></p>
-          <div class="actions"><button data-render="preview">Preview HTML</button><span id="preview-status"></span></div>
-          <iframe id="preview-frame" class="preview-frame" srcdoc="<em style='color:#6b7280;font-family:sans-serif;padding:12px;display:block'>Click above</em>"></iframe>
-        </section>
-
-        <section class="card">
-          <h2>5–9 · Document lifecycle</h2>
-          <p class="lede">Store → fetch descriptor → thumbnails → preview → delete.</p>
-          <div class="actions">
-            <button data-doc="create">5 · Store</button>
-            <button data-doc="get" disabled>6 · Descriptor</button>
-            <button data-doc="thumbs" disabled>7 · Thumbnails</button>
-            <button data-doc="preview" disabled>8 · Preview</button>
-            <button data-doc="delete" disabled>9 · Delete</button>
-            <button class="ghost" data-doc="open" disabled>Open PDF</button>
+        <header class="mast">
+          <h1 class="wordmark">Welcome to <span class="brand">Poli&nbsp;Page</span></h1>
+          <p class="tagline">Your starter, your dashboard. Every SDK feature, one click away.</p>
+          <div class="status-row">
+            <span class="dot"></span>
+            <span>api-develop.poli.page</span>
+            <span class="sep">·</span>
+            <span>poli-page/spring-boot-starter v0.1.0</span>
           </div>
-          <p class="doc-state">Document id: <code id="doc-id">— (none)</code></p>
-          <pre id="doc-output" class="output">// Output appears here</pre>
-          <div id="thumbs" class="thumbs"></div>
+        </header>
+
+        <section>
+          <div class="head">
+            <h2>Render <span class="label">01 · instant</span></h2>
+            <p class="desc">
+              Three SDK entry points for rendering the <code>getting-started/welcome</code> template:
+              binary PDF (<code>render().pdf</code>), streamed PDF (<code>render().pdfStream</code>),
+              and HTML preview (<code>render().preview</code>).
+            </p>
+          </div>
+          <div class="actions">
+            <button class="run" data-action="pdf"     data-target="r1">Render PDF</button>
+            <button class="run" data-action="stream"  data-target="r1">Via stream</button>
+            <button class="run" data-action="preview" data-target="r1">HTML preview</button>
+          </div>
+          <div class="result" id="r1">
+            <div class="pane-label"><span>output</span><span class="meta">idle</span></div>
+            <div class="empty">Press a button to render.</div>
+          </div>
         </section>
 
-        <section class="card">
-          <h2>10 · Error surface</h2>
-          <p class="lede">Trigger a deliberate <code>INVALID_VERSION_FORMAT</code> and inspect the typed exception JSON.</p>
-          <div class="actions"><button data-action="error">Trigger 400</button><span id="error-status"></span></div>
-          <pre id="error-output" class="output">// Exception details appear here</pre>
+        <section>
+          <div class="head">
+            <h2>Documents <span class="label">02 · store &amp; retrieve</span></h2>
+            <p class="desc">
+              Persist a render (<code>render().document</code>), then fetch it back, preview it,
+              list thumbnails, or soft-delete it. The four right-hand buttons unlock after a document exists.
+            </p>
+          </div>
+          <div class="doc-id" id="doc-id">
+            <span class="indicator"></span>
+            <span id="doc-id-text">no document stored</span>
+          </div>
+          <div class="actions">
+            <button class="run" data-action="doc-create"     data-target="r2">Store new document</button>
+            <button class="run" data-action="doc-get"        data-target="r2" data-needs-doc>Get PDF</button>
+            <button class="run" data-action="doc-preview"    data-target="r2" data-needs-doc>Preview</button>
+            <button class="run" data-action="doc-thumbnails" data-target="r2" data-needs-doc>Thumbnails</button>
+            <button class="run" data-action="doc-delete"     data-target="r2" data-needs-doc>Delete</button>
+          </div>
+          <div class="result" id="r2">
+            <div class="pane-label"><span>output</span><span class="meta">idle</span></div>
+            <div class="empty">Store a document to begin.</div>
+          </div>
         </section>
 
-      </main>
-      <footer>
-        <p>Powered by <code>page.poli:poli-page-spring-boot-starter</code>. Source at <a href="https://github.com/poli-page/spring-boot">github.com/poli-page/spring-boot</a>.</p>
-      </footer>
+        <section>
+          <div class="head">
+            <h2>Error handling <span class="label">03 · typed exceptions</span></h2>
+            <p class="desc">
+              Sends a deliberately malformed version string to trigger
+              <code>INVALID_VERSION_FORMAT</code>. The starter's typed exceptions propagate the
+              API code, message, and request-id straight through.
+            </p>
+          </div>
+          <div class="actions">
+            <button class="run" data-action="bad-version" data-target="r3">Trigger 400</button>
+          </div>
+          <div class="result" id="r3">
+            <div class="pane-label"><span>output</span><span class="meta">idle</span></div>
+            <div class="empty">Press the button to see the error payload.</div>
+          </div>
+        </section>
+
+        <section>
+          <div class="head">
+            <h2>Command line <span class="label">04 · CLI runner</span></h2>
+            <p class="desc">
+              Boot the example app with <code>--render-to-file=PATH</code> and the
+              <code>RenderToFileRunner</code> writes a PDF to disk before HTTP starts serving.
+              Copy and run in a terminal alongside this server.
+            </p>
+          </div>
+          <div class="cli">
+            <button class="copy" data-copy="./gradlew :example-app:mvc:bootRun --args='--render-to-file=./welcome.pdf'">Copy</button>
+            <span class="prompt">$</span>./gradlew :example-app:mvc:bootRun --args='--render-to-file=./welcome.pdf'
+          </div>
+        </section>
+
+        <footer>
+          <span>poli-page/spring-boot-starter · v0.1.0</span>
+          <span class="links"><a href="https://docs.poli.page" target="_blank" rel="noopener">docs.poli.page</a></span>
+        </footer>
+
+      </div>
+
       <script>
-        const $ = (id) => document.getElementById(id);
-        const setStatus = (id, status, ok) => {
-          const el = $(id);
-          if (!el) return;
-          el.textContent = status;
-          el.className = 'status ' + (ok ? 'ok' : 'err');
+      (() => {
+        const state = { docId: null };
+
+        const $ = sel => document.querySelector(sel);
+        const escapeHtml = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+        const setDocId = id => {
+          state.docId = id;
+          const el = $('#doc-id');
+          const text = $('#doc-id-text');
+          if (id) {
+            el.classList.add('has-id');
+            text.innerHTML = `documentId: ${id} <button class="copy" data-copy="${id}">copy</button>`;
+          } else {
+            el.classList.remove('has-id');
+            text.textContent = 'no document stored';
+          }
+          document.querySelectorAll('button[data-needs-doc]').forEach(b => { b.disabled = !id; });
+        };
+        setDocId(null);
+
+        const paneHead = (label, status) =>
+          `<div class="pane-label"><span>${label}</span><span class="meta">${status}</span></div>`;
+
+        const renderIframe = (target, src, label, meta) => {
+          target.classList.remove('is-error'); target.classList.add('is-ok');
+          target.innerHTML = paneHead(label, meta) + `<iframe src="${src}"></iframe>`;
+        };
+        const renderInlineHtml = (target, html, label, meta) => {
+          target.classList.remove('is-error'); target.classList.add('is-ok');
+          const safe = html.replace(/"/g, '&quot;');
+          target.innerHTML = paneHead(label, meta) + `<iframe srcdoc="${safe}"></iframe>`;
+        };
+        const renderJson = (target, status, body, label) => {
+          target.classList.remove('is-error', 'is-ok');
+          const ok = status >= 200 && status < 400;
+          target.classList.add(ok ? 'is-ok' : 'is-error');
+          let pretty = body;
+          try { pretty = JSON.stringify(JSON.parse(body), null, 2); } catch (e) {}
+          target.innerHTML = paneHead(label, `${status} ${ok ? 'ok' : 'error'}`) +
+            `<pre>${escapeHtml(pretty)}</pre>`;
+        };
+        const renderError = (target, msg) => {
+          target.classList.remove('is-ok'); target.classList.add('is-error');
+          target.innerHTML = paneHead('output', 'error') + `<pre>${escapeHtml(msg)}</pre>`;
         };
 
-        async function fetchBlobInto(frameId, statusId, url) {
-          setStatus(statusId, '…', true);
-          const res = await fetch(url);
-          if (!res.ok) { setStatus(statusId, 'HTTP ' + res.status, false); return; }
-          const blob = await res.blob();
-          $(frameId).src = URL.createObjectURL(blob);
-          setStatus(statusId, 'HTTP ' + res.status + ' · ' + (blob.size / 1024).toFixed(1) + ' KB', true);
-        }
-
-        async function fetchHtmlInto(frameId, statusId, url) {
-          setStatus(statusId, '…', true);
-          const res = await fetch(url);
-          const text = await res.text();
-          if (!res.ok) { setStatus(statusId, 'HTTP ' + res.status, false); return; }
-          $(frameId).srcdoc = text;
-          setStatus(statusId, 'HTTP ' + res.status + ' · ' + (text.length / 1024).toFixed(1) + ' KB', true);
-        }
-
-        async function fetchJson(url, opts) {
-          const res = await fetch(url, opts);
-          const text = await res.text();
-          let body;
-          try { body = JSON.parse(text); } catch { body = text; }
-          return { status: res.status, ok: res.ok, body };
-        }
-
-        document.querySelector('button[data-render="pdf"]').addEventListener('click', () => fetchBlobInto('pdf-frame', 'pdf-status', '/render/pdf'));
-        document.querySelector('button[data-render="stream"]').addEventListener('click', () => fetchBlobInto('stream-frame', 'stream-status', '/render/stream'));
-        document.querySelector('button[data-render="preview"]').addEventListener('click', () => fetchHtmlInto('preview-frame', 'preview-status', '/render/preview'));
-
-        let currentDocId = null;
-        const docButtons = (en) => document.querySelectorAll('[data-doc]').forEach(b => { if (b.dataset.doc !== 'create') b.disabled = !en; });
-
-        document.querySelector('button[data-doc="create"]').addEventListener('click', async () => {
-          const r = await fetchJson('/documents', { method: 'POST' });
-          $('doc-output').textContent = JSON.stringify(r.body, null, 2);
-          if (r.ok && r.body && r.body.documentId) {
-            currentDocId = r.body.documentId;
-            $('doc-id').textContent = currentDocId;
-            docButtons(true);
-            $('thumbs').innerHTML = '';
+        const withLoading = async (btn, fn) => {
+          btn.classList.add('is-loading');
+          btn.disabled = true;
+          try { await fn(); }
+          finally {
+            btn.classList.remove('is-loading');
+            document.querySelectorAll('button[data-needs-doc]').forEach(b => { b.disabled = !state.docId; });
+            if (!btn.hasAttribute('data-needs-doc')) btn.disabled = false;
           }
-        });
+        };
 
-        document.querySelector('button[data-doc="get"]').addEventListener('click', async () => {
-          const r = await fetchJson('/documents/' + currentDocId + '/raw');
-          $('doc-output').textContent = JSON.stringify(r.body, null, 2);
-        });
+        const actions = {
+          pdf: async target => {
+            const r = await fetch('/render/pdf');
+            if (!r.ok) return renderError(target, `HTTP ${r.status}`);
+            const blob = await r.blob();
+            renderIframe(target, URL.createObjectURL(blob), 'pdf', `${blob.size.toLocaleString()} bytes`);
+          },
+          stream: async target => {
+            const r = await fetch('/render/stream');
+            if (!r.ok) return renderError(target, `HTTP ${r.status}`);
+            const blob = await r.blob();
+            renderIframe(target, URL.createObjectURL(blob), 'pdf (stream)', `${blob.size.toLocaleString()} bytes`);
+          },
+          preview: async target => {
+            const r = await fetch('/render/preview');
+            const html = await r.text();
+            if (!r.ok) return renderError(target, `HTTP ${r.status}`);
+            renderInlineHtml(target, html, 'html preview', `${html.length.toLocaleString()} chars`);
+          },
+          'doc-create': async target => {
+            const r = await fetch('/documents', { method: 'POST' });
+            const body = await r.text();
+            renderJson(target, r.status, body, 'document descriptor');
+            if (r.ok) { try { setDocId(JSON.parse(body).documentId); } catch {} }
+          },
+          'doc-get': async target => {
+            if (!state.docId) return;
+            // Why: /documents/{id} returns a 302 to a presigned S3 URL. Fetching
+            // and following the redirect from JS hits CORS (S3 doesn't expose
+            // Access-Control-Allow-Origin). An <iframe> navigation isn't a fetch,
+            // so the browser follows the redirect natively without CORS.
+            renderIframe(target, `/documents/${state.docId}`, 'stored pdf', 'served via 302 → presigned S3 URL');
+          },
+          'doc-preview': async target => {
+            if (!state.docId) return;
+            const r = await fetch(`/documents/${state.docId}/preview`);
+            const html = await r.text();
+            if (!r.ok) return renderError(target, `HTTP ${r.status}`);
+            renderInlineHtml(target, html, 'stored html preview', `${html.length.toLocaleString()} chars`);
+          },
+          'doc-thumbnails': async target => {
+            if (!state.docId) return;
+            const r = await fetch(`/documents/${state.docId}/thumbnails`);
+            const body = await r.text();
+            renderJson(target, r.status, body, 'thumbnails');
+          },
+          'doc-delete': async target => {
+            if (!state.docId) return;
+            const r = await fetch(`/documents/${state.docId}`, { method: 'DELETE' });
+            const body = await r.text();
+            renderJson(target, r.status, body || '"(204 No Content)"', 'delete');
+            if (r.ok) setDocId(null);
+          },
+          'bad-version': async target => {
+            const r = await fetch('/errors/bad-version');
+            const body = await r.text();
+            renderJson(target, r.status, body, 'error payload');
+          },
+        };
 
-        document.querySelector('button[data-doc="thumbs"]').addEventListener('click', async () => {
-          const r = await fetchJson('/documents/' + currentDocId + '/thumbnails');
-          $('doc-output').textContent = JSON.stringify({ count: Array.isArray(r.body) ? r.body.length : 0 }, null, 2);
-          const container = $('thumbs');
-          container.innerHTML = '';
-          if (Array.isArray(r.body)) {
-            r.body.forEach(t => {
-              const img = document.createElement('img');
-              img.src = 'data:' + t.contentType + ';base64,' + t.data;
-              img.alt = 'page ' + t.page;
-              container.appendChild(img);
+        document.querySelectorAll('button.run').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const action = btn.dataset.action;
+            const target = document.getElementById(btn.dataset.target);
+            const fn = actions[action];
+            if (!fn) return;
+            target.classList.remove('is-error', 'is-ok');
+            target.innerHTML = paneHead('output', 'running…') + `<div class="empty">Working…</div>`;
+            await withLoading(btn, async () => {
+              try { await fn(target); }
+              catch (e) { renderError(target, e.message || String(e)); }
             });
-          }
+          });
         });
 
-        document.querySelector('button[data-doc="preview"]').addEventListener('click', async () => {
-          const res = await fetch('/documents/' + currentDocId + '/preview');
-          const html = await res.text();
-          const w = window.open('', '_blank');
-          w.document.write(html);
-          w.document.close();
+        document.addEventListener('click', e => {
+          const btn = e.target.closest('button.copy');
+          if (!btn) return;
+          const text = btn.dataset.copy;
+          navigator.clipboard?.writeText(text);
+          const orig = btn.textContent;
+          btn.textContent = 'copied';
+          btn.classList.add('copied');
+          setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1200);
         });
-
-        document.querySelector('button[data-doc="delete"]').addEventListener('click', async () => {
-          const res = await fetch('/documents/' + currentDocId, { method: 'DELETE' });
-          $('doc-output').textContent = 'DELETE → ' + res.status;
-          if (res.ok) {
-            currentDocId = null;
-            $('doc-id').textContent = '— (deleted)';
-            docButtons(false);
-            $('thumbs').innerHTML = '';
-          }
-        });
-
-        document.querySelector('button[data-doc="open"]').addEventListener('click', () => {
-          window.open('/documents/' + currentDocId, '_blank');
-        });
-
-        document.querySelector('button[data-action="error"]').addEventListener('click', async () => {
-          const r = await fetchJson('/errors/bad-version');
-          setStatus('error-status', 'HTTP ' + r.status, r.status >= 400);
-          $('error-output').textContent = JSON.stringify(r.body, null, 2);
-        });
+      })();
       </script>
+
       </body>
       </html>
       """;
