@@ -1,19 +1,19 @@
-# Contributing to Poli Page Spring Boot Starter
+# Contributing to Poli Page for Spring Boot
 
 Thanks for your interest in improving this starter. This guide covers setup, tests, and conventions.
 
 ## Setup
 
+Install the local SDK snapshot once (until `page.poli:sdk` ships to Maven Central):
+
 ```bash
-./gradlew --no-daemon build
+cd ../sdk-java && ./mvnw install -DskipTests
 ```
 
-The first run pulls Gradle 8.10, the Spring Boot BOM for the default `springBootVersion`, and the SDK from Maven Central (or from `../sdk-java/` if the composite-build override is active — see [§9 of CLAUDE.md](CLAUDE.md#9-sdk-dependency-note)).
-
-Set `POLI_PAGE_API_KEY` in your environment (a `pp_test_*` key is fine) before running the integration test:
+Set `POLI_PAGE_API_KEY` in your environment (a `pp_test_*` key is fine) before running integration tests:
 
 ```bash
-export POLI_PAGE_API_KEY=pp_test_...
+export POLI_PAGE_API_KEY=pp_test_…
 ```
 
 ## Tests
@@ -32,86 +32,34 @@ Per-module:
 ./gradlew --no-daemon :poli-page-spring-boot-starter-webflux:test
 ```
 
-Integration test (hits `api-develop.poli.page`, gated on `POLI_PAGE_API_KEY`):
+Integration tests are skipped automatically when `POLI_PAGE_API_KEY` is unset, so PR contributors without a key still get a green local run.
 
-```bash
-./gradlew --no-daemon integrationTest
-```
-
-Integration tests are skipped when `POLI_PAGE_API_KEY` is unset. PRs from contributors without a key still get green local runs.
-
-## Lint, format, type-check
+## Lint, format, build
 
 ```bash
 ./gradlew --no-daemon spotlessCheck    # google-java-format compliance
 ./gradlew --no-daemon spotlessApply    # auto-format
-./gradlew --no-daemon check            # Spotless + Error Prone + NullAway + tests
+./gradlew --no-daemon build            # spotless + compile + test + assemble
 ```
 
-The full CI suite:
+CI matrix: Java 17 / 21 × Spring Boot 3.2.+ / 3.3.+ / 3.4.+ (6 cells). All must be green before merge.
 
-```bash
-./gradlew --no-daemon build check
-```
+## Pull requests
 
-## Code conventions
+- [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`.
+- One concern per PR, reviewable in under 30 minutes.
+- PR description: what changed, why, how it was tested.
+- CI must be green on all 6 matrix cells before merge.
 
-- **Java 17+ only.** Spring Boot 3 requires it; the SDK requires it. Don't introduce `--release 21` features that break the floor.
-- **Spotless + google-java-format.** Run `spotlessApply` before pushing.
-- **Error Prone + NullAway.** Build fails on warnings — treat them as errors locally.
-- **JSpecify `@Nullable`** for nullable fields and parameters.
-- **No `@SuppressWarnings`** without a `// Why:` comment explaining the constraint.
-- **Default to no comments.** Public Javadoc is required (Maven Central enforces it). Comments restating *what* the code does are noise.
-- **`@ConditionalOnMissingBean` on every starter-provided bean.** Always allow user override.
+## Reporting issues
 
-## Commits
+Open an issue at [github.com/poli-page/spring-boot/issues](https://github.com/poli-page/spring-boot/issues) with:
 
-[Conventional Commits](https://www.conventionalcommits.org/):
+- The Spring Boot version and Java version you're on
+- A minimal reproducer (a snippet of `application.yml` + a stripped-down controller is usually enough)
+- For runtime failures, the relevant stack trace and the `requestId` from the `PoliPageException` if one was thrown
 
-- `feat:` new feature
-- `fix:` bug fix
-- `docs:` documentation only
-- `chore:` build / tooling
-- `refactor:` non-behavioural change
-- `test:` test additions or refactors
-
-One concern per PR, reviewable in under 30 minutes.
-
-## CI
-
-`.github/workflows/ci.yml` matrix: Java 17 / 21 × Spring Boot 3.2.+ / 3.3.+ / 3.4.+ (6 cells). All must be green before merge.
-
-Local mirror:
-
-```bash
-./gradlew --no-daemon build spotlessCheck
-```
-
-## Release process
-
-For maintainers — pushing a tagged release publishes to Maven Central.
-
-1. Confirm `CHANGELOG.md` has an entry for the new version with the date filled in.
-2. Bump `version` in `gradle.properties`.
-3. `git commit -m "chore: release v0.x.y"` and push to `main`.
-4. `git tag v0.x.y && git push --tags`.
-5. The `.github/workflows/publish.yml` workflow:
-   - Builds + signs all three artifacts (`-autoconfigure`, `-starter`, `-starter-webflux`)
-   - Uploads to Sonatype OSSRH
-   - Auto-promotes the staging repository via `nexus-publish-plugin`
-6. Wait ~30 minutes – 4 hours for Central indexing.
-7. Smoke-test: `curl -fsSL https://repo1.maven.org/maven2/page/poli/poli-page-spring-boot-starter/0.x.y/poli-page-spring-boot-starter-0.x.y.pom`.
-
-Secrets needed in the GitHub repo:
-
-- `OSSRH_USERNAME` / `OSSRH_PASSWORD` — Sonatype credentials
-- `GPG_PRIVATE_KEY` / `GPG_PASSPHRASE` — signing key (shared with `sdk-java`)
-
-## Questions / blockers
-
-- Spec ambiguity: [`docs/spec/spring-boot-starter-specification.md`](docs/spec/spring-boot-starter-specification.md) is the authoritative source. If it's silent on something, open an issue.
-- SDK behaviour: read `/Users/mickael/Projects/sdk-java/` first, then ask the maintainer.
-- CI flakiness on `main`: open an issue tagged `ci-flake`; do not let it block your PR.
+For security-sensitive reports, email security@poli.page instead of opening a public issue.
 
 ## License
 

@@ -1,18 +1,32 @@
-# Poli Page Spring Boot Starter
+# Poli Page for Spring Boot
 
-[![Maven Central](https://img.shields.io/maven-central/v/page.poli/poli-page-spring-boot-starter.svg)](https://central.sonatype.com/artifact/page.poli/poli-page-spring-boot-starter)
-[![CI](https://github.com/poli-page/spring-boot/actions/workflows/ci.yml/badge.svg)](https://github.com/poli-page/spring-boot/actions/workflows/ci.yml)
-[![Javadoc](https://javadoc.io/badge2/page.poli/poli-page-spring-boot-starter/javadoc.svg)](https://javadoc.io/doc/page.poli/poli-page-spring-boot-starter)
-[![License](https://img.shields.io/github/license/poli-page/spring-boot)](LICENSE)
+> Render Poli Page documents as Spring Boot controller responses.
 
-Official Spring Boot 3 starter for [Poli Page](https://poli.page) — auto-configures the [Java SDK](https://github.com/poli-page/sdk-java) into your Spring application context, ships `ResponseEntity` helpers for PDFs, an `ApplicationEventPublisher` bridge for retry/error hooks, an Actuator `HealthIndicator`, and Micrometer metrics. WebFlux variant included.
+## About
 
-→ **Documentation**: deep-dive guides under [`docs/`](docs/).
-→ Underlying SDK: [`page.poli:sdk`](https://github.com/poli-page/sdk-java).
+This starter wires the Poli Page Java SDK into Spring Boot's auto-configuration system. You get a `PoliPageClient` bean autowired from `application.yml`, `ResponseEntity` helpers for PDF and HTML preview routes, an `ApplicationEventPublisher` bridge for the SDK's `onRetry` / `onError` hooks, an Actuator `HealthIndicator`, and Micrometer counters/timers — all conditional, all overridable. A sibling WebFlux artifact does the same for reactive controllers returning `Mono` / `Flux<DataBuffer>`.
+
+**When to use this:**
+
+- You want `PoliPageClient` available in any `@Component` / `@RestController` via constructor injection, with no manual `@Bean` boilerplate.
+- You want PDF responses with the correct `Content-Type`, `Cache-Control`, and RFC 5987-encoded `Content-Disposition` headers without writing them by hand.
+- You want the SDK's retry/error hooks delivered through Spring's standard `@EventListener` mechanism, observable via Micrometer.
+- You want a reactive variant (`PoliPageReactiveResponses`) that bridges the SDK's `CompletableFuture`-returning async facade into Reactor types.
+
+**When not to:**
+
+- You're not on Spring Boot — install [`page.poli:sdk`](https://github.com/poli-page/sdk-java) directly.
+- You're still on Spring Boot 2.x — only Spring Boot 3.x (Jakarta namespace) is supported.
+
+## Requirements
+
+- Java 17+
+- Spring Boot 3.2 / 3.3 / 3.4 (Jakarta namespace only)
+- A Poli Page API key — get one at [poli.page/dashboard/keys](https://poli.page/dashboard/keys)
+
+> **Pre-release note**: as of `0.1.0-SNAPSHOT`, neither this starter nor the underlying [`page.poli:sdk`](https://github.com/poli-page/sdk-java) is on Maven Central yet. Until the first stable release both need to be installed locally: `cd ../sdk-java && ./mvnw install -DskipTests`. The coordinates below are what consumers will use once both publish to Central.
 
 ## Install
-
-> **Pre-release note**: as of `0.1.0-SNAPSHOT`, neither this starter nor the underlying [`page.poli:sdk`](https://github.com/poli-page/sdk-java) is on Maven Central yet. Until the first stable release, both need to be installed locally via `./mvnw install` (SDK) and `./gradlew publishToMavenLocal` (starter). The coordinates below are what consumers will use once both publish to Central.
 
 Maven:
 
@@ -36,7 +50,14 @@ For reactive WebFlux apps, swap the artifact id:
 implementation("page.poli:poli-page-spring-boot-starter-webflux:0.1.0")
 ```
 
-Requires Java 17+ and Spring Boot 3.2 / 3.3 / 3.4.
+Set the API key in your environment:
+
+```bash
+# .env
+POLI_PAGE_API_KEY=pp_test_your_key_here
+```
+
+Verify everything is wired by booting the example app (see [Example app](#example-app)).
 
 ## Quick start
 
@@ -50,6 +71,17 @@ poli-page:
 `InvoiceController.java`:
 
 ```java
+package com.example.billing;
+
+import java.util.Map;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RestController;
+import page.poli.sdk.PoliPageClient;
+import page.poli.sdk.input.ProjectModeInput;
+import page.poli.sdk.spring.web.PoliPageResponses;
+
 @RestController
 public class InvoiceController {
 
@@ -61,11 +93,11 @@ public class InvoiceController {
         this.responses = responses;
     }
 
-    @GetMapping("/{id}.pdf")
-    public ResponseEntity<byte[]> invoice(@PathVariable String id) {
+    @GetMapping("/invoice/{id}.pdf")
+    public ResponseEntity<byte[]> show(@PathVariable String id) {
         byte[] pdf = client.render().pdf(ProjectModeInput.builder()
-            .project("billing")
-            .template("invoice")
+            .project("invoices")
+            .template("default")
             .version("1.0.0")
             .data(Map.of("invoice_id", id))
             .build());
@@ -74,65 +106,118 @@ public class InvoiceController {
 }
 ```
 
-Run with `POLI_PAGE_API_KEY=pp_test_...` in the environment and `GET /123.pdf` returns a real PDF with the right headers.
-
-Every Poli Page org comes pre-provisioned with a `getting-started/welcome` template, so the snippet above works as-is the moment you have an API key.
-
-## What you get
-
-| Bean | Type | When |
-|---|---|---|
-| `poliPageClient` | `PoliPageClient` | Always (overridable with your own `@Bean`). |
-| `poliPageResponses` | `PoliPageResponses` | MVC starter only. |
-| `poliPageReactiveResponses` | `PoliPageReactiveResponses` | WebFlux starter only. |
-| `poliPageEventBridge` | `PoliPageEventBridge` | `poli-page.events.enabled` (default `true`). |
-| `poliPageHealthIndicator` | `HealthIndicator` | Actuator on classpath + `poli-page.health.enabled` (default `true`). |
-| `poliPageMetrics` | `MeterBinder` | Micrometer on classpath + `poli-page.metrics.enabled` (default `true`). |
+Every Poli Page org comes pre-provisioned with a `getting-started/welcome` template, so the snippet above runs as-is the moment you have an API key.
 
 ## Configuration
 
-| Property | Type | Default | Notes |
-|---|---|---|---|
-| `poli-page.api-key` | `String` | — (required) | Must match `pp_test_…` or `pp_live_…`. |
-| `poli-page.base-url` | `URI` | SDK default | Override for staging or self-hosted deployments. |
-| `poli-page.request-timeout` | `Duration` | SDK default (60 s) | Per-attempt request timeout. |
-| `poli-page.retries.max-attempts` | `int` | SDK default (2) | `0` disables retries. |
-| `poli-page.retries.delay` | `Duration` | SDK default (500 ms) | Base delay for exponential backoff. |
-| `poli-page.health.enabled` | `boolean` | `true` | Toggle the HealthIndicator. |
-| `poli-page.metrics.enabled` | `boolean` | `true` | Toggle Micrometer metrics. |
-| `poli-page.events.enabled` | `boolean` | `true` | Toggle the ApplicationEvent bridge. |
+You bind options under the `poli-page.*` prefix. The starter validates them at startup; bad input fails the boot with a `BindValidationException`.
 
-See [`docs/configuration-properties.md`](docs/configuration-properties.md) for the full reference, validation rules, and IDE auto-completion notes.
+| Option | Default | Description |
+|---|---|---|
+| `api-key` | _required_ | API key starting with `pp_test_` or `pp_live_`. |
+| `base-url` | SDK default | Override the API origin (must be absolute). |
+| `request-timeout` | SDK default (60s) | Per-attempt request timeout (`Duration`, 1s ≤ t ≤ 10min). |
+| `retries.max-attempts` | SDK default (2) | Retry budget (integer, 0–10). |
+| `retries.delay` | SDK default (500ms) | Base delay for exponential backoff (`Duration`, 0 ≤ t ≤ 30s). |
+| `health.enabled` | `true` | Register the Actuator `HealthIndicator` probing `/v1/health`. |
+| `metrics.enabled` | `true` | Register the Micrometer `MeterBinder` (retry/error counters and timer). |
+| `events.enabled` | `true` | Publish `PoliPageRetryEvent` / `PoliPageErrorEvent` via `ApplicationEventPublisher`. |
 
-## Documentation
+```yaml
+# application.yml
+poli-page:
+  api-key: ${POLI_PAGE_API_KEY}
+  request-timeout: 30s
+  retries:
+    max-attempts: 4
+```
 
-| Topic | What it covers |
+You inspect the resolved bean graph with `/actuator/conditions` (when Actuator is on the classpath).
+
+## API at a glance
+
+| Symbol | Purpose |
 |---|---|
-| [Auto-configuration](docs/auto-configuration.md) | How beans are registered, overridden, and disabled. |
-| [Configuration properties](docs/configuration-properties.md) | Every property the starter reads, its validation rules, and how relaxed binding works. |
-| [Responses](docs/responses.md) | `ResponseEntity` helpers for PDFs and HTML previews (MVC). |
-| [Streaming](docs/streaming.md) | `StreamingResponseBody` for large PDFs without buffering. |
-| [Events](docs/events.md) | `@EventListener` integration with the SDK's retry / error hooks. |
-| [Actuator](docs/actuator.md) | `HealthIndicator` plus four Micrometer meters with bounded tag cardinality. |
-| [WebFlux](docs/webflux.md) | The reactive sibling: `Mono<ResponseEntity<byte[]>>` and `Flux<DataBuffer>`. |
-| [Testing](docs/testing.md) | Stubbing `PoliPageClient` with `@MockitoBean`, WireMock-backed integration tests, the gated develop-API smoke test. |
-| [Specification](docs/spec/spring-boot-starter-specification.md) | The full design spec — authoritative source for all decisions. |
-| [Implementation plan](docs/plan/2026-06-01-implementation.md) | Task-by-task plan that produces v0.1.0 from this spec. |
+| `page.poli.sdk.PoliPageClient` | Autowired SDK client (`render()`, `documents()`, `renderAsync()`, `documentsAsync()`). |
+| `page.poli.sdk.spring.PoliPageProperties` | `@ConfigurationProperties("poli-page")` record bound from `application.yml`. |
+| `page.poli.sdk.spring.web.PoliPageResponses` | (MVC) `bytes` / `stream` / `preview` / `documentRedirect` `ResponseEntity` builders. |
+| `page.poli.sdk.spring.reactive.PoliPageReactiveResponses` | (WebFlux) same shape, returning `Mono` / `Flux<DataBuffer>`. |
+| `page.poli.sdk.spring.event.PoliPageRetryEvent` | `ApplicationEvent` published before each SDK retry sleep. |
+| `page.poli.sdk.spring.event.PoliPageErrorEvent` | `ApplicationEvent` published when the SDK gives up after exhausting retries. |
+| `page.poli.sdk.spring.actuator.PoliPageHealthIndicator` | `/actuator/health` component named `poliPage`, probing `GET /v1/health`. |
+| `page.poli.sdk.spring.metrics.PoliPageMetrics` | `MeterBinder` exposing `poli.page.retries.total`, `.delay`, `.errors.total`. |
+
+Full reference: [docs/auto-configuration.md](docs/auto-configuration.md).
+
+## Errors
+
+The SDK throws `page.poli.sdk.exception.PoliPageException` (or a subclass from the sealed hierarchy). The starter does not catch or transform them — you handle them in your controller, an `@ExceptionHandler`, or a `@ControllerAdvice`. The categories you typically discriminate on:
+
+- **Auth** — `PoliPageAuthException` (HTTP 401 / 403). Invalid or missing API key.
+- **Rate limit** — `PoliPageRateLimitException` (HTTP 429). You hit the rate limit; back off per `retryAfter()`.
+- **Request rejected** — `PoliPageValidationException`, `PoliPageNotFoundException`, `PoliPageGoneException`, `PoliPagePaymentRequiredException`. Template, data, version, or organisation lifecycle errors.
+- **Network / transport** — `PoliPageNetworkException` (no HTTP status). Connection failure, DNS, TLS, or timeout.
+
+Pattern-match exhaustively against the sealed hierarchy:
+
+```java
+try {
+    byte[] pdf = client.render().pdf(input);
+} catch (PoliPageAuthException e) {
+    // re-check POLI_PAGE_API_KEY
+    throw e;
+} catch (PoliPageRateLimitException e) {
+    // honour e.retryAfter()
+    throw e;
+} catch (PoliPageValidationException e) {
+    // surface e.code() to the user
+    throw e;
+} catch (PoliPageNetworkException e) {
+    // network/timeout — safe to retry the whole request
+    throw e;
+} catch (PoliPageException e) {
+    // anything else from the SDK (5xx)
+    throw e;
+}
+```
+
+`PoliPageErrorEvent` fires for terminal failures in addition to the throw, so you can wire global alerting through a single `@EventListener` without controller-level boilerplate. See [docs/events.md](docs/events.md).
 
 ## Example app
 
-A runnable Spring Boot app demonstrating every SDK method lives at [`example-app/mvc/`](example-app/mvc/) (MVC) and [`example-app/webflux/`](example-app/webflux/) (reactive). Each ships an interactive HTML dashboard at `GET /` covering the 10 demo steps from the SDK's own `examples/`.
+Two runnable Spring Boot apps live under [`example-app/`](example-app/) — one MVC, one WebFlux — covering every SDK method. Each ships an interactive dashboard at `/` with one button per feature, plus the underlying JSON / PDF routes for scripted use.
 
 ```bash
-export POLI_PAGE_API_KEY=pp_test_...
-./gradlew :example-app:mvc:bootRun
-open http://localhost:8080/
+export POLI_PAGE_API_KEY=pp_test_…
+./gradlew :example-app:mvc:bootRun        # http://localhost:8080
+./gradlew :example-app:webflux:bootRun    # http://localhost:8081
 ```
 
-## Versioning
+See [example-app/README.md](example-app/README.md) for the full route map.
 
-This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html). v0.x while the API stabilises; v1.0.0 when we ship the explicit API stability promise.
+## Going further
+
+- [docs/auto-configuration.md](docs/auto-configuration.md) — How beans are registered, overridden, and disabled.
+- [docs/configuration-properties.md](docs/configuration-properties.md) — Every `poli-page.*` key, its validation, and relaxed-binding rules.
+- [docs/responses.md](docs/responses.md) — The four `ResponseEntity` builders, their headers, and RFC 5987 filename encoding.
+- [docs/streaming.md](docs/streaming.md) — `StreamingResponseBody` for multi-MB PDFs without buffering.
+- [docs/webflux.md](docs/webflux.md) — Reactive variant: `Mono<ResponseEntity<byte[]>>` and `Flux<DataBuffer>`.
+- [docs/events.md](docs/events.md) — Subscribe to `PoliPageRetryEvent` / `PoliPageErrorEvent` with `@EventListener`.
+- [docs/actuator.md](docs/actuator.md) — The `HealthIndicator` and three Micrometer meters.
+- [docs/testing.md](docs/testing.md) — Stubbing `PoliPageClient` with `@MockitoBean`, WireMock-backed integration tests.
+
+## Compatibility
+
+| Starter | Spring Boot | Java |
+|---|---|---|
+| `0.1.x` | `3.2.x` / `3.3.x` / `3.4.x` | `17` / `21` |
+
+Spring Boot 2.x (`javax.*` namespace) is not supported. Maintenance follows the Spring Boot upstream support window — new majors land within one minor of upstream release.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-[MIT](LICENSE)
+Released under the [MIT License](LICENSE).

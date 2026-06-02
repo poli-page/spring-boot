@@ -105,7 +105,7 @@ Local mirror:
 ./gradlew --no-daemon integrationTest    # gated on POLI_PAGE_API_KEY
 ```
 
-## 9. SDK dependency note
+## 9. Unpublished SDK note
 
 `page.poli:sdk` is **not yet on Maven Central** as of 2026-06-01. Current version is `1.0.0-SNAPSHOT`, only available via `~/.m2/repository/` after a local `mvn install`. The starter's autoconfigure module pins this snapshot version explicitly.
 
