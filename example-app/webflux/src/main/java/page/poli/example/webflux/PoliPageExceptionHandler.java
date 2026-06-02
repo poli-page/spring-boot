@@ -41,7 +41,8 @@ public class PoliPageExceptionHandler {
     body.put("status", ex.statusCode());
     body.put("requestId", ex.requestId());
     body.put("message", ex.getMessage());
-    int status = ex.statusCode() >= 400 ? ex.statusCode() : HttpStatus.INTERNAL_SERVER_ERROR.value();
+    int status =
+        ex.statusCode() >= 400 ? ex.statusCode() : HttpStatus.INTERNAL_SERVER_ERROR.value();
     return ResponseEntity.status(status).body(body);
   }
 }
