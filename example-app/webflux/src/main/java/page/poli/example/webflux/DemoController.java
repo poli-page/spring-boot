@@ -133,6 +133,7 @@ public class DemoController {
         section:nth-of-type(2) { animation-delay: 0.12s; }
         section:nth-of-type(3) { animation-delay: 0.19s; }
         section:nth-of-type(4) { animation-delay: 0.26s; }
+        section:nth-of-type(5) { animation-delay: 0.33s; }
         @keyframes rise {
           from { opacity: 0; transform: translateY(10px); }
           to   { opacity: 1; transform: translateY(0); }
@@ -467,7 +468,24 @@ public class DemoController {
 
         <section>
           <div class="head">
-            <h2>Error handling <span class="label">03 · typed exceptions</span></h2>
+            <h2>Filesystem <span class="label">03 · render to disk</span></h2>
+            <p class="desc">
+              <code>PoliPageClient.renderToFileAsync()</code> streams the PDF straight to disk under
+              <code>example-app/output/welcome.pdf</code> — memory-bounded regardless of size.
+            </p>
+          </div>
+          <div class="actions">
+            <button class="run" data-action="render-file" data-target="r3">Render to file</button>
+          </div>
+          <div class="result" id="r3">
+            <div class="pane-label"><span>output</span><span class="meta">idle</span></div>
+            <div class="empty">Press the button to stream a PDF to disk.</div>
+          </div>
+        </section>
+
+        <section>
+          <div class="head">
+            <h2>Error handling <span class="label">04 · typed exceptions</span></h2>
             <p class="desc">
               Sends a deliberately malformed version string to trigger
               <code>INVALID_VERSION_FORMAT</code>. The reactive bridge unwraps
@@ -475,9 +493,9 @@ public class DemoController {
             </p>
           </div>
           <div class="actions">
-            <button class="run" data-action="bad-version" data-target="r3">Trigger 400</button>
+            <button class="run" data-action="bad-version" data-target="r4">Trigger 400</button>
           </div>
-          <div class="result" id="r3">
+          <div class="result" id="r4">
             <div class="pane-label"><span>output</span><span class="meta">idle</span></div>
             <div class="empty">Press the button to see the error payload.</div>
           </div>
@@ -485,7 +503,7 @@ public class DemoController {
 
         <section>
           <div class="head">
-            <h2>Command line <span class="label">04 · CLI runner</span></h2>
+            <h2>Command line <span class="label">05 · CLI</span></h2>
             <p class="desc">
               Boot the example app with <code>--render-to-file=PATH</code> and the
               <code>RenderToFileRunner</code> writes a PDF to disk before HTTP starts serving.
@@ -616,6 +634,11 @@ public class DemoController {
             const body = await r.text();
             renderJson(target, r.status, body || '"(204 No Content)"', 'delete');
             if (r.ok) setDocId(null);
+          },
+          'render-file': async target => {
+            const r = await fetch('/render/file', { method: 'POST' });
+            const body = await r.text();
+            renderJson(target, r.status, body, 'wrote to disk');
           },
           'bad-version': async target => {
             const r = await fetch('/errors/bad-version');
