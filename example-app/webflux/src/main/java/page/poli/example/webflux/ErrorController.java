@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import page.poli.sdk.PoliPageClient;
+import page.poli.sdk.exception.ErrorPayload;
 import page.poli.sdk.exception.PoliPageException;
 import page.poli.sdk.input.ProjectModeInput;
 import reactor.core.publisher.Mono;
@@ -39,13 +40,13 @@ public class ErrorController {
             ex -> {
               Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
               if (cause instanceof PoliPageException ppe) {
+                ErrorPayload payload = ppe.toPayload();
+                int status = payload.status() != null ? payload.status() : 500;
                 Map<String, Object> body = new HashMap<>();
-                body.put("type", ppe.getClass().getSimpleName());
-                body.put("code", ppe.code());
-                body.put("status", ppe.statusCode());
-                body.put("requestId", ppe.requestId());
-                body.put("message", ppe.getMessage());
-                int status = ppe.statusCode() > 0 ? ppe.statusCode() : 500;
+                body.put("code", payload.code());
+                body.put("message", payload.message());
+                body.put("status", status);
+                body.put("requestId", payload.requestId());
                 return Mono.just(ResponseEntity.status(status).body(body));
               }
               return Mono.error(ex);

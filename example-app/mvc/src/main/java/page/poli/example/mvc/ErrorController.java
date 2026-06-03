@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import page.poli.sdk.PoliPageClient;
+import page.poli.sdk.exception.ErrorPayload;
 import page.poli.sdk.exception.PoliPageException;
 import page.poli.sdk.input.ProjectModeInput;
 
@@ -38,13 +39,14 @@ public class ErrorController {
                   .build());
       return ResponseEntity.ok(Map.of("unexpected", "expected a 400 but the call succeeded"));
     } catch (PoliPageException ex) {
+      ErrorPayload payload = ex.toPayload();
+      int status = payload.status() != null ? payload.status() : 500;
       Map<String, Object> body = new HashMap<>();
-      body.put("type", ex.getClass().getSimpleName());
-      body.put("code", ex.code());
-      body.put("status", ex.statusCode());
-      body.put("requestId", ex.requestId());
-      body.put("message", ex.getMessage());
-      return ResponseEntity.status(ex.statusCode() > 0 ? ex.statusCode() : 500).body(body);
+      body.put("code", payload.code());
+      body.put("message", payload.message());
+      body.put("status", status);
+      body.put("requestId", payload.requestId());
+      return ResponseEntity.status(status).body(body);
     }
   }
 }
