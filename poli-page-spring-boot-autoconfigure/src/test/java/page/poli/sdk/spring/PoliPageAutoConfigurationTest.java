@@ -7,6 +7,7 @@ import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.StandardEnvironment;
 import page.poli.sdk.PoliPageClient;
 import page.poli.sdk.spring.actuator.PoliPageHealthIndicator;
 import page.poli.sdk.spring.metrics.PoliPageMetrics;
@@ -15,6 +16,14 @@ class PoliPageAutoConfigurationTest {
 
   private final ApplicationContextRunner runner =
       new ApplicationContextRunner()
+          // Drop systemEnvironment so POLI_PAGE_* vars set on the host (CI runners,
+          // contributors' shells) can't bind to poli-page.* via relaxed binding and
+          // leak into the assertions below — notably doesNotFireWithoutApiKey().
+          .withInitializer(
+              ctx ->
+                  ctx.getEnvironment()
+                      .getPropertySources()
+                      .remove(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME))
           .withConfiguration(AutoConfigurations.of(PoliPageAutoConfiguration.class));
 
   @Test

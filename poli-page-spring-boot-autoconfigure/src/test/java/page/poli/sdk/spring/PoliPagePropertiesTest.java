@@ -9,11 +9,20 @@ import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.autoconfigure.validation.ValidationAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.core.env.StandardEnvironment;
 
 class PoliPagePropertiesTest {
 
   private final ApplicationContextRunner runner =
       new ApplicationContextRunner()
+          // Drop systemEnvironment so POLI_PAGE_* vars set on the host (CI runners,
+          // contributors' shells) can't bind to poli-page.* via relaxed binding and
+          // leak into the assertions below.
+          .withInitializer(
+              ctx ->
+                  ctx.getEnvironment()
+                      .getPropertySources()
+                      .remove(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME))
           .withConfiguration(AutoConfigurations.of(ValidationAutoConfiguration.class))
           .withUserConfiguration(TestConfig.class);
 
