@@ -33,3 +33,6 @@ logs/
 
 # Maven (only relevant if a downstream consumer runs `mvn` against the published .pom)
 target/
+CLAUDE.md
+docs/plan/
+docs/spec/

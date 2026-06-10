@@ -1,6 +1,5 @@
 poli-page:
   api-key: ${POLI_PAGE_API_KEY}
-  base-url: ${POLI_PAGE_BASE_URL:https://api-develop.poli.page}
 
 server:
   port: 8080

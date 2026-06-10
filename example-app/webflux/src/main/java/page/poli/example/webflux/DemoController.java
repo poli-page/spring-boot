@@ -415,8 +415,6 @@ public class DemoController {
           <p class="tagline">Your starter, your dashboard. Every SDK feature, one click away.</p>
           <div class="status-row">
             <span class="dot"></span>
-            <span>api-develop.poli.page</span>
-            <span class="sep">·</span>
             <span>poli-page/spring-boot-starter-webflux v0.1.0</span>
           </div>
         </header>

@@ -21,20 +21,21 @@ import page.poli.sdk.PoliPageClient;
 import page.poli.sdk.input.ProjectModeInput;
 
 /**
- * One happy-path integration test against {@code api-develop.poli.page}.
+ * One happy-path integration test against the live API.
  *
  * <p>Skipped automatically when {@code POLI_PAGE_API_KEY} is unset, so contributor PRs without a
  * key still get a green local run. Boots a minimal Spring Boot app with the MVC starter and a
  * single controller; hits it via {@link TestRestTemplate}; asserts the response is a real PDF.
  *
  * <p>To run locally: {@code POLI_PAGE_API_KEY=pp_test_… ./gradlew
- * :poli-page-spring-boot-starter:test}.
+ * :poli-page-spring-boot-starter:test}. Set {@code POLI_PAGE_TEST_BASE_URL} to target an
+ * environment other than the SDK default.
  */
 @SpringBootTest(
     classes = RenderAgainstDevelopApiIT.IntegrationApp.class,
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = {
-      "poli-page.base-url=https://api-develop.poli.page",
+      "poli-page.base-url=${POLI_PAGE_TEST_BASE_URL:#{null}}",
       "spring.main.banner-mode=off",
       "logging.level.root=WARN"
     })

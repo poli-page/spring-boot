@@ -110,7 +110,7 @@ class PoliPageAutoConfigurationTest {
     runner
         .withPropertyValues(
             "poli-page.api-key=pp_test_x",
-            "poli-page.base-url=https://api-develop.poli.page",
+            "poli-page.base-url=https://api.example.com",
             "poli-page.request-timeout=15s",
             "poli-page.retries.max-attempts=4",
             "poli-page.retries.delay=750ms")
