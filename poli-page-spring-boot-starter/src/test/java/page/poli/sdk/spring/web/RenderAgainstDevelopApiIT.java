@@ -35,7 +35,7 @@ import page.poli.sdk.input.ProjectModeInput;
     classes = RenderAgainstDevelopApiIT.IntegrationApp.class,
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = {
-      "poli-page.base-url=${POLI_PAGE_TEST_BASE_URL:#{null}}",
+      "poli-page.base-url=${POLI_PAGE_TEST_BASE_URL:}",
       "spring.main.banner-mode=off",
       "logging.level.root=WARN"
     })
