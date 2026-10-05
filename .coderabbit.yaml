@@ -1,0 +1,86 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit config for poli-page repos. PRs here are mostly opened and fixed by automated agents
+# (the poli-page auto loop and issue pipeline), which read CodeRabbit's findings and its commit status.
+language: en-US
+early_access: false
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  allow_author_approval: true
+  # The summary goes in the walkthrough, never in the PR description: the merge gate reads the description.
+  high_level_summary: false
+  high_level_summary_in_walkthrough: true
+  review_status: true
+  review_details: false
+  # The loop decides "reviewed this head" from the CodeRabbit commit status ("Review completed").
+  review_progress: true
+  commit_status: true
+  fail_commit_status: false
+  collapse_walkthrough: true
+  changed_files_summary: true
+  sequence_diagrams: true
+  estimate_code_review_effort: true
+  assess_linked_issues: true
+  related_issues: true
+  related_prs: true
+  suggested_labels: true
+  # PR labels are the closed issues' labels; CodeRabbit only suggests.
+  auto_apply_labels: false
+  suggested_reviewers: true
+  auto_assign_reviewers: false
+  in_progress_fortune: false
+  poem: false
+  enable_prompt_for_ai_agents: true
+  abort_on_close: true
+  disable_cache: false
+  slop_detection:
+    enabled: true
+    include_all_authors: false
+  auto_review:
+    enabled: true
+    drafts: false
+    # Every push of a fix round must be reviewed, and never auto-paused (the loop allows up to 5 rounds).
+    auto_incremental_review: true
+    auto_pause_after_reviewed_commits: 0
+  pre_merge_checks:
+    docstrings:
+      mode: "off"
+  path_filters:
+    - "!**/build/**"
+    - "!.gradle/**"
+    - "!gradle/wrapper/gradle-wrapper.jar"
+    - "!**/*.lockfile"
+  path_instructions:
+    - path: "poli-page-spring-boot-autoconfigure/src/main/**"
+      instructions: >-
+        Spring Boot 3.x auto-configuration (Jakarta namespace, Java 17). Beans must be conditional
+        (@ConditionalOnMissingBean, @ConditionalOnClass, @ConditionalOnProperty) and overridable by
+        the application. Registration must stay in META-INF/spring/*.AutoConfiguration.imports. Every
+        new poli-page.* property needs validation, a default, and an entry in
+        additional-spring-configuration-metadata.json. The API key must never be logged or hardcoded.
+    - path: "poli-page-spring-boot-starter*/src/main/**"
+      instructions: >-
+        The MVC starter (PoliPageResponses) and the WebFlux starter (PoliPageReactiveResponses) must
+        stay behaviorally aligned: same Content-Type, Cache-Control and RFC 5987 Content-Disposition
+        handling. The WebFlux code must not block (bridge the SDK's CompletableFuture facade into
+        Mono/Flux). Public API changes need a major version bump and a CHANGELOG.md entry.
+    - path: "**/src/test/**"
+      instructions: >-
+        Every public method and auto-configuration condition needs a test (ApplicationContextRunner
+        style for auto-config). Tests must not require a real API key or network; the *IT classes
+        that hit the develop API must stay opt-in.
+    - path: "example-app/**"
+      instructions: >-
+        This is sample code that customers copy: it must be correct, idiomatic Spring Boot, and secure.
+        The API key comes from the POLI_PAGE_API_KEY env var via application.yml, never from source.
+        Error handling should surface the SDK's error code ({ error: { code } }). The MVC and WebFlux
+        apps should stay in sync, and README.md instructions must match the code.
+    - path: "docs/**"
+      instructions: >-
+        Docs must match the actual poli-page.* property names, defaults and bean names in the
+        autoconfigure module, and the code samples must compile against the current API.
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - CONTRIBUTING.md
