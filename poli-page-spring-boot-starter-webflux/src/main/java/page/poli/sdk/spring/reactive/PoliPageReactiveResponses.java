@@ -7,7 +7,6 @@ import java.util.concurrent.CompletableFuture;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferFactory;
 import org.springframework.core.io.buffer.DataBufferUtils;
-import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -15,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import page.poli.sdk.model.DocumentDescriptor;
 import page.poli.sdk.model.DocumentPreviewResult;
 import page.poli.sdk.model.PreviewResult;
+import page.poli.sdk.spring.internal.ContentDispositionHeader;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -116,11 +116,7 @@ public final class PoliPageReactiveResponses {
   private static HttpHeaders pdfHeaders(String filename, boolean inline) {
     HttpHeaders headers = new HttpHeaders();
     headers.setContentType(APPLICATION_PDF);
-    ContentDisposition disposition =
-        (inline ? ContentDisposition.inline() : ContentDisposition.attachment())
-            .filename(filename, StandardCharsets.UTF_8)
-            .build();
-    headers.setContentDisposition(disposition);
+    headers.set(HttpHeaders.CONTENT_DISPOSITION, ContentDispositionHeader.build(filename, inline));
     headers.setCacheControl(CACHE_CONTROL);
     headers.set("X-Content-Type-Options", "nosniff");
     return headers;

@@ -7,6 +7,9 @@ All notable changes to `page.poli:poli-page-spring-boot-starter` (and the siblin
 ### Added
 - Initial release scaffolding.
 
+### Fixed
+- `PoliPageResponses` / `PoliPageReactiveResponses`: the `Content-Disposition` filename is now escaped per RFC 6266 / RFC 9110 (`\` and `"` as quoted-pairs, ASCII fallback included) and stripped of control characters (CR/LF, TAB, DEL, C1). Spring's `ContentDisposition` builder is no longer used: its UTF-8 mode emits an RFC 2047 `=?UTF-8?Q?…?=` fallback with `"` and `\` unescaped, so a crafted filename could break out of the quoted-string. ASCII filenames now get a plain `filename="…"` instead of a Q-encoded one.
+
 ## [0.1.0] — TBD
 
 ### Added

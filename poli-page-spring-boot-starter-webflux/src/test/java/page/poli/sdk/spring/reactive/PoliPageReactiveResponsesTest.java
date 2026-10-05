@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferFactory;
 import org.springframework.core.io.buffer.DefaultDataBufferFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -50,6 +51,32 @@ class PoliPageReactiveResponsesTest {
         .assertNext(
             response ->
                 assertThat(response.getHeaders().getContentDisposition().isInline()).isTrue())
+        .verifyComplete();
+  }
+
+  @Test
+  void bytesContentDispositionIsEscapedAndStripped() {
+    CompletableFuture<byte[]> future = CompletableFuture.completedFuture(new byte[0]);
+
+    StepVerifier.create(responses.bytes(future, "x.pdf\"; filename=\"pwn\\.exe\r\n"))
+        .assertNext(
+            response ->
+                assertThat(response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION))
+                    .isEqualTo("attachment; filename=\"x.pdf\\\"; filename=\\\"pwn\\\\.exe\""))
+        .verifyComplete();
+  }
+
+  @Test
+  void bytesNonAsciiContentDispositionIsEscapedAndStripped() {
+    CompletableFuture<byte[]> future = CompletableFuture.completedFuture(new byte[0]);
+
+    StepVerifier.create(responses.bytes(future, "résumé \"final\"\\v2\r\n\u0085.pdf", true))
+        .assertNext(
+            response ->
+                assertThat(response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION))
+                    .isEqualTo(
+                        "inline; filename=\"r?sum? \\\"final\\\"\\\\v2.pdf\"; "
+                            + "filename*=UTF-8''r%C3%A9sum%C3%A9%20%22final%22%5Cv2.pdf"))
         .verifyComplete();
   }
 

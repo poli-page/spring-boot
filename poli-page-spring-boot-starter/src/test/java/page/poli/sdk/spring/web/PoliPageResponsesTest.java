@@ -8,7 +8,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -49,6 +53,62 @@ class PoliPageResponsesTest {
 
     String raw = response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION);
     assertThat(raw).contains("filename*=UTF-8''facture-%C3%A9t%C3%A9.pdf");
+  }
+
+  // Same cases as poli-page/django#1: control characters stripped, `\` and `"` escaped as
+  // quoted-pairs, dual notation for non-ASCII names.
+  static Stream<Arguments> rfc6266Cases() {
+    return Stream.of(
+        Arguments.of(
+            "double-quote-is-escaped",
+            "say \"hi\".pdf",
+            "attachment; filename=\"say \\\"hi\\\".pdf\""),
+        Arguments.of("backslash-is-escaped", "a\\b.pdf", "attachment; filename=\"a\\\\b.pdf\""),
+        Arguments.of(
+            "crlf-is-stripped",
+            "evil.pdf\r\nSet-Cookie: sid=1",
+            "attachment; filename=\"evil.pdfSet-Cookie: sid=1\""),
+        Arguments.of(
+            "control-chars-are-stripped",
+            "tab\there\u0000\u001f\u007f.pdf",
+            "attachment; filename=\"tabhere.pdf\""),
+        Arguments.of(
+            "parameter-injection-stays-inside-the-quoted-string",
+            "x.pdf\"; filename=\"pwn.exe",
+            "attachment; filename=\"x.pdf\\\"; filename=\\\"pwn.exe\""),
+        Arguments.of(
+            "non-ascii-uses-rfc5987-dual-notation",
+            "résumé François.pdf",
+            "attachment; filename=\"r?sum? Fran?ois.pdf\"; "
+                + "filename*=UTF-8''r%C3%A9sum%C3%A9%20Fran%C3%A7ois.pdf"),
+        Arguments.of(
+            "non-ascii-fallback-is-escaped",
+            "résumé \"final\"\\v2.pdf",
+            "attachment; filename=\"r?sum? \\\"final\\\"\\\\v2.pdf\"; "
+                + "filename*=UTF-8''r%C3%A9sum%C3%A9%20%22final%22%5Cv2.pdf"),
+        Arguments.of(
+            "non-ascii-control-chars-are-stripped-from-both-forms",
+            "résumé\r\n\u0085.pdf",
+            "attachment; filename=\"r?sum?.pdf\"; filename*=UTF-8''r%C3%A9sum%C3%A9.pdf"));
+  }
+
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("rfc6266Cases")
+  void bytesContentDispositionIsRfc6266Safe(String id, String filename, String expected) {
+    ResponseEntity<byte[]> response = responses.bytes(new byte[0], filename);
+
+    assertThat(response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION))
+        .as(id)
+        .isEqualTo(expected);
+  }
+
+  @Test
+  void streamContentDispositionIsEscapedAndStripped() {
+    ResponseEntity<StreamingResponseBody> response =
+        responses.stream(new ByteArrayInputStream(new byte[0]), "q\"\r\n.pdf", true);
+
+    assertThat(response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION))
+        .isEqualTo("inline; filename=\"q\\\".pdf\"");
   }
 
   @Test

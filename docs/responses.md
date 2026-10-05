@@ -130,7 +130,7 @@ The presigned URL has its own expiry (15 minutes by default in the platform), bu
 
 ## Non-ASCII filenames
 
-`Content-Disposition` is the part developers most often get wrong. The helper uses Spring's `ContentDisposition.attachment().filename(name, StandardCharsets.UTF_8).build()` which emits RFC 5987-compliant headers:
+`Content-Disposition` is the part developers most often get wrong. The helper builds it per RFC 6266 / RFC 8187: control characters (CR/LF, TAB, DEL, C1) are stripped, `\` and `"` are escaped as quoted-pairs, and non-ASCII names get an ASCII fallback (`?` per non-ASCII character) plus a UTF-8 percent-encoded `filename*`:
 
 ```java
 return responses.bytes(pdf, "facture-été.pdf");
@@ -139,8 +139,10 @@ return responses.bytes(pdf, "facture-été.pdf");
 →
 
 ```
-Content-Disposition: attachment; filename="facture-?.pdf"; filename*=UTF-8''facture-%C3%A9t%C3%A9.pdf
+Content-Disposition: attachment; filename="facture-?t?.pdf"; filename*=UTF-8''facture-%C3%A9t%C3%A9.pdf
 ```
+
+It does not use Spring's `ContentDisposition.filename(name, UTF_8)`: that emits an RFC 2047 `=?UTF-8?Q?…?=` fallback in which `"` and `\` are not escaped, so a crafted filename can break out of the quoted-string.
 
 Browsers that understand RFC 5987 (every modern browser) use `filename*`; older clients fall back to the ASCII `filename`. You don't have to think about it.
 
