@@ -73,7 +73,7 @@ reviews:
       instructions: >-
         This is sample code that customers copy: it must be correct, idiomatic Spring Boot, and secure.
         The API key comes from the POLI_PAGE_API_KEY env var via application.yml, never from source.
-        Error handling should surface the SDK's error code ({ error: { code } }). The MVC and WebFlux
+        Error handling should surface the SDK's error code ({ error: CODE_STRING, detail?, issues? } (flat, API spec §4.1)). The MVC and WebFlux
         apps should stay in sync, and README.md instructions must match the code.
     - path: "docs/**"
       instructions: >-
