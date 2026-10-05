@@ -3,7 +3,6 @@ package page.poli.sdk.spring.web;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -12,6 +11,7 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
 import page.poli.sdk.model.DocumentDescriptor;
 import page.poli.sdk.model.DocumentPreviewResult;
 import page.poli.sdk.model.PreviewResult;
+import page.poli.sdk.spring.internal.ContentDispositionHeader;
 
 /**
  * Stateless helper that adapts SDK return values into Spring MVC {@link ResponseEntity} objects
@@ -127,11 +127,7 @@ public final class PoliPageResponses {
   private static HttpHeaders pdfHeaders(String filename, boolean inline) {
     HttpHeaders headers = new HttpHeaders();
     headers.setContentType(APPLICATION_PDF);
-    ContentDisposition disposition =
-        (inline ? ContentDisposition.inline() : ContentDisposition.attachment())
-            .filename(filename, StandardCharsets.UTF_8)
-            .build();
-    headers.setContentDisposition(disposition);
+    headers.set(HttpHeaders.CONTENT_DISPOSITION, ContentDispositionHeader.build(filename, inline));
     headers.setCacheControl(CACHE_CONTROL);
     headers.set("X-Content-Type-Options", "nosniff");
     return headers;
