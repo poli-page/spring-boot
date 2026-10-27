@@ -145,10 +145,10 @@ The API is the only authority on keys, so the starter never rejects a non-blank 
 A key that does not match (for example `pp_sandbox_x`, `pp_Sandbox_…`, a 21-character environment name, or a dashboard token such as `sk_live_…`) logs exactly one warning and the app starts anyway:
 
 ```
-WARN  page.poli.sdk.spring.PoliPageAutoConfiguration : Poli Page API key "pp_sandbox_…" does not look like pp_{environment}_{32 hex characters}; starting anyway, the API decides whether it is valid.
+WARN  page.poli.sdk.spring.PoliPageAutoConfiguration : Poli Page API key does not match the expected format pp_{environment}_{32 lowercase hex characters}; starting anyway, the API decides whether it is valid.
 ```
 
-The warning shows at most the `pp_{env}_` part, and only when `{env}` is a valid environment name (lowercase letters, digits and single inner hyphens, starting with a letter, 1 to 20 characters); it never shows the secret. The first call then fails with the API's answer: `401 INVALID_API_KEY`, or `401 MISSING_API_KEY` for a value without `pp_`.
+The warning shows no part of the key, not even the `pp_{env}_` prefix: a mis-pasted secret fragment can look like a valid environment name. The first call then fails with the API's answer: `401 INVALID_API_KEY`, or `401 MISSING_API_KEY` for a value without `pp_`.
 
 ## IDE auto-completion
 

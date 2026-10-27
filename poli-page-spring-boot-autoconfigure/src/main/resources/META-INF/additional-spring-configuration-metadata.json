@@ -3,7 +3,7 @@
     {
       "name": "poli-page.api-key",
       "type": "java.lang.String",
-      "description": "Your Poli Page API key, for example pp_sandbox_... or pp_live_.... Required and not blank. A key that does not look like pp_{environment}_{32 hex characters} logs one warning at startup; the API decides whether it is valid. Find one at https://poli.page/dashboard/keys."
+      "description": "Your Poli Page API key, for example pp_sandbox_... or pp_live_.... Required and not blank. A key that does not match pp_{environment}_{32 lowercase hex characters} logs one warning at startup that shows no part of the key; the API decides whether it is valid. Find one at https://poli.page/dashboard/keys."
     },
     {
       "name": "poli-page.base-url",

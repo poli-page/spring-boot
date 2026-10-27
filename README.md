@@ -69,7 +69,7 @@ An API key belongs to exactly one environment of your organization, and its text
 
 "Counted" means the render counts toward the organization's monthly PDF quota.
 
-The API is the only authority on keys. The starter only requires `poli-page.api-key` to be present and not blank. When the key does not match `^pp_(?=[a-z][a-z0-9-]{0,19}_)[a-z][a-z0-9]*(?:-[a-z0-9]+)*_[0-9a-f]{32}$`, it logs one warning at startup (showing at most the `pp_{env}_` part, never the secret) and starts anyway; the API then answers `401 INVALID_API_KEY`, or `401 MISSING_API_KEY` for a value without `pp_`.
+The API is the only authority on keys. The starter only requires `poli-page.api-key` to be present and not blank. When the key does not match `^pp_(?=[a-z][a-z0-9-]{0,19}_)[a-z][a-z0-9]*(?:-[a-z0-9]+)*_[0-9a-f]{32}$`, it logs one warning at startup that shows no part of the key, not even the `pp_{env}_` prefix, and starts anyway; the API then answers `401 INVALID_API_KEY`, or `401 MISSING_API_KEY` for a value without `pp_`.
 
 Verify everything is wired by booting the example app (see [Example app](#example-app)).
 

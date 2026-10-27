@@ -22,9 +22,9 @@ import page.poli.sdk.spring.validation.DurationRange;
  * starter release.
  *
  * @param apiKey the API key — required and not blank. A key has the form {@code
- *     pp_{environment}_{32 hex characters}} ({@code pp_sandbox_…}, {@code pp_live_…}, {@code
- *     pp_staging_…}); any other value logs one warning at startup and is passed to the API, which
- *     decides whether it is valid
+ *     pp_{environment}_{32 lowercase hex characters}} ({@code pp_sandbox_…}, {@code pp_live_…},
+ *     {@code pp_staging_…}); any other value logs one warning at startup, which shows no part of
+ *     the key, and is passed to the API, which decides whether it is valid
  * @param baseUrl optional base URL of the API; defaults to {@code https://api.poli.page}
  * @param requestTimeout optional per-attempt request timeout; defaults to 60 s
  * @param retries retry-policy nested record

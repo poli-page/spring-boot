@@ -8,9 +8,12 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -18,7 +21,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -41,8 +43,10 @@ class PoliPageAutoConfigurationTest {
   private static final String ENV_20 = "a1234567890123456789";
   private static final String ENV_21 = ENV_20 + "0";
   private static final String NOT_A_KEY_WARNING =
-      "does not look like pp_{environment}_{32 hex characters}; "
+      "Poli Page API key does not match the expected format "
+          + "pp_{environment}_{32 lowercase hex characters}; "
           + "starting anyway, the API decides whether it is valid.";
+  private static final Pattern ENV_PREFIX = Pattern.compile("pp_([^_]*)_");
 
   private final Logger logger = (Logger) LoggerFactory.getLogger(PoliPageAutoConfiguration.class);
   private final ListAppender<ILoggingEvent> logs = new ListAppender<>();
@@ -135,51 +139,64 @@ class PoliPageAutoConfigurationTest {
 
     assertThat(warnings()).isEmpty();
     assertThat(eventsAboveWarn()).isEmpty();
-    assertKeyNeverShown(key, output);
+    assertNeverShown(List.of(key, SECRET), output);
   }
 
-  // Each malformed key with the only part of it the warning may show (null: none of it).
-  static Stream<Arguments> malformedKeys() {
+  static Stream<String> malformedKeys() {
     return Stream.of(
-        Arguments.of("pp_sandbox_x", "pp_sandbox_"),
-        Arguments.of("pp_eu-prod_x", "pp_eu-prod_"),
-        // An {env} outside the environment-name grammar is not shown: it may be part of the secret.
-        Arguments.of("pp_Sandbox_" + SECRET, null),
-        Arguments.of("pp_2fa_" + SECRET, null),
-        Arguments.of("pp_a--b_" + SECRET, null),
-        Arguments.of("pp_eu-_" + SECRET, null),
-        Arguments.of("pp_-eu_" + SECRET, null),
-        Arguments.of("pp_eu_prod_" + SECRET, "pp_eu_"),
-        // The shown prefix's 20/21 boundary, from both sides.
-        Arguments.of("pp_" + ENV_20 + "_" + SECRET.toUpperCase(Locale.ROOT), "pp_" + ENV_20 + "_"),
-        Arguments.of("pp_" + ENV_21 + "_" + SECRET, null),
-        Arguments.of("pp_sandbox_" + SECRET.toUpperCase(Locale.ROOT), "pp_sandbox_"),
-        Arguments.of("pp_sandbox_" + SECRET.substring(1) + "g", "pp_sandbox_"),
-        Arguments.of("pp_sandbox_" + SECRET.substring(1), "pp_sandbox_"),
-        Arguments.of(SANDBOX_KEY + "0", "pp_sandbox_"),
-        Arguments.of(SANDBOX_KEY + "x", "pp_sandbox_"),
-        Arguments.of(SANDBOX_KEY + "\n", "pp_sandbox_"),
-        Arguments.of("x" + SANDBOX_KEY, null),
-        Arguments.of(" " + SANDBOX_KEY, null),
-        Arguments.of("pp__" + SECRET, null),
-        Arguments.of("pp_" + SECRET, null),
-        Arguments.of(SECRET, null),
-        Arguments.of("sk_live_token", null));
+        // A valid environment name with a bad secret: still no part of the key is shown.
+        "pp_sandbox_x",
+        "pp_eu-prod_x",
+        // A mis-pasted secret fragment can look like a valid environment name.
+        "pp_abc123_" + SECRET.substring(0, 16),
+        "pp_Sandbox_" + SECRET,
+        "pp_2fa_" + SECRET,
+        "pp_a--b_" + SECRET,
+        "pp_eu-_" + SECRET,
+        "pp_-eu_" + SECRET,
+        "pp_eu_prod_" + SECRET,
+        // The environment name's 20/21 boundary, from both sides.
+        "pp_" + ENV_20 + "_" + SECRET.toUpperCase(Locale.ROOT),
+        "pp_" + ENV_21 + "_" + SECRET,
+        "pp_sandbox_" + SECRET.toUpperCase(Locale.ROOT),
+        "pp_sandbox_" + SECRET.substring(1) + "g",
+        "pp_sandbox_" + SECRET.substring(1),
+        SANDBOX_KEY + "0",
+        SANDBOX_KEY + "x",
+        SANDBOX_KEY + "\n",
+        "x" + SANDBOX_KEY,
+        " " + SANDBOX_KEY,
+        "pp__" + SECRET,
+        "pp_" + SECRET,
+        SECRET,
+        "sk_live_token");
   }
 
   @ParameterizedTest
   @MethodSource("malformedKeys")
-  void malformedKeyStartsWithOneWarningThatHidesTheSecret(
-      String key, @Nullable String shownPrefix, CapturedOutput output) {
+  void malformedKeyStartsWithOneWarningThatShowsNoPartOfTheKey(String key, CapturedOutput output) {
     startWithKey(key);
 
-    String expected =
-        "Poli Page API key "
-            + (shownPrefix == null ? "" : "\"" + shownPrefix + "…\" ")
-            + NOT_A_KEY_WARNING;
-    assertThat(warnings()).containsExactly(expected);
+    assertThat(warnings()).containsExactly(NOT_A_KEY_WARNING);
     assertThat(eventsAboveWarn()).isEmpty();
-    assertKeyNeverShown(key, output);
+    assertNeverShown(keyParts(key), output);
+  }
+
+  @Test
+  void emptyKeyFailsStartupWithoutWarning() {
+    runner
+        .withConfiguration(AutoConfigurations.of(ValidationAutoConfiguration.class))
+        .withInitializer(
+            ctx ->
+                ctx.getEnvironment()
+                    .getPropertySources()
+                    .addFirst(new MapPropertySource("key", Map.of("poli-page.api-key", ""))))
+        .run(
+            context -> {
+              assertThat(context).hasFailed();
+              assertThat(warnings()).isEmpty();
+              assertThat(eventsAboveWarn()).isEmpty();
+            });
   }
 
   @Test
@@ -291,10 +308,25 @@ class PoliPageAutoConfigurationTest {
         .toList();
   }
 
-  private void assertKeyNeverShown(String key, CapturedOutput output) {
-    assertThat(output).doesNotContain(key.strip()).doesNotContain(SECRET);
-    assertThat(logs.list)
-        .extracting(ILoggingEvent::getFormattedMessage)
-        .noneMatch(message -> message.contains(key.strip()) || message.contains(SECRET));
+  // The key, its secret, its pp_{env}_ prefix and its bare {env} segment.
+  private static List<String> keyParts(String key) {
+    List<String> parts = new ArrayList<>(List.of(key.strip(), SECRET));
+    Matcher prefix = ENV_PREFIX.matcher(key);
+    if (prefix.find()) {
+      parts.add(prefix.group());
+      if (!prefix.group(1).isEmpty()) {
+        parts.add(prefix.group(1));
+      }
+    }
+    return parts;
+  }
+
+  private void assertNeverShown(List<String> parts, CapturedOutput output) {
+    for (String part : parts) {
+      assertThat(output.getAll()).doesNotContain(part);
+      assertThat(logs.list)
+          .extracting(ILoggingEvent::getFormattedMessage)
+          .noneMatch(message -> message.contains(part));
+    }
   }
 }
