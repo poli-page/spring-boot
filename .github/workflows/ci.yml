@@ -106,3 +106,9 @@ jobs:
           # The *IT classes live in the starter's test source set and run only when the key is set.
           # --rerun: the key is not a task input, so a cached keyless result would skip them.
           ./gradlew --no-daemon :poli-page-spring-boot-starter:test --tests '*IT' --rerun
+          # A key the IT's @EnabledIfEnvironmentVariable rejects skips the IT and the build stays green.
+          suite=$(grep -s '<testsuite ' poli-page-spring-boot-starter/build/test-results/test/TEST-page.poli.sdk.spring.web.RenderAgainstDevelopApiIT.xml || true)
+          if [[ "$suite" != *' skipped="0"'* || "$suite" == *' tests="0"'* ]]; then
+            echo "::error::POLI_PAGE_API_KEY is set but RenderAgainstDevelopApiIT did not run (skipped or no report). Check the key's format against the IT's @EnabledIfEnvironmentVariable."
+            exit 1
+          fi
