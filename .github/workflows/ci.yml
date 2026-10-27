@@ -103,8 +103,6 @@ jobs:
             echo "POLI_PAGE_API_KEY not set — skipping integration test"
             exit 0
           fi
-          if [ -f settings.gradle.kts ] && ./gradlew tasks --all | grep -q integrationTest; then
-            ./gradlew --no-daemon integrationTest
-          else
-            echo "integrationTest task not yet defined — skipping"
-          fi
+          # The *IT classes live in the starter's test source set and run only when the key is set.
+          # --rerun: the key is not a task input, so a cached keyless result would skip them.
+          ./gradlew --no-daemon :poli-page-spring-boot-starter:test --tests '*IT' --rerun
