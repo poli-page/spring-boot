@@ -47,6 +47,7 @@ class PoliPageAutoConfigurationTest {
           + "pp_{environment}_{32 lowercase hex characters}; "
           + "starting anyway, the API decides whether it is valid.";
   private static final Pattern ENV_PREFIX = Pattern.compile("pp_([^_]*)_");
+  private static final int MIN_CHECKED_ENV_LENGTH = 3;
 
   private final Logger logger = (Logger) LoggerFactory.getLogger(PoliPageAutoConfiguration.class);
   private final ListAppender<ILoggingEvent> logs = new ListAppender<>();
@@ -139,7 +140,11 @@ class PoliPageAutoConfigurationTest {
 
     assertThat(warnings()).isEmpty();
     assertThat(eventsAboveWarn()).isEmpty();
-    assertNeverShown(List.of(key, SECRET), output);
+    // A bare env under 3 characters ("a") would match unrelated output; its pp_a_ prefix is still
+    // checked.
+    assertNeverShown(
+        keyParts(key).stream().filter(part -> part.length() >= MIN_CHECKED_ENV_LENGTH).toList(),
+        output);
   }
 
   static Stream<String> malformedKeys() {
@@ -325,8 +330,23 @@ class PoliPageAutoConfigurationTest {
     for (String part : parts) {
       assertThat(output.getAll()).doesNotContain(part);
       assertThat(logs.list)
-          .extracting(ILoggingEvent::getFormattedMessage)
-          .noneMatch(message -> message.contains(part));
+          .flatMap(PoliPageAutoConfigurationTest::eventText)
+          .noneMatch(text -> text.contains(part));
     }
+  }
+
+  // What a layout or a structured encoder can print: the message, key/value pairs, MDC and
+  // arguments.
+  private static List<String> eventText(ILoggingEvent event) {
+    List<String> text = new ArrayList<>();
+    text.add(event.getFormattedMessage());
+    if (event.getKeyValuePairs() != null) {
+      event.getKeyValuePairs().forEach(pair -> text.add(pair.key + "=" + pair.value));
+    }
+    event.getMDCPropertyMap().forEach((name, value) -> text.add(name + "=" + value));
+    if (event.getArgumentArray() != null) {
+      Stream.of(event.getArgumentArray()).forEach(argument -> text.add(String.valueOf(argument)));
+    }
+    return text;
   }
 }
