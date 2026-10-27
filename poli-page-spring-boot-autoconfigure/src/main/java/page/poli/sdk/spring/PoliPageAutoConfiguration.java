@@ -45,13 +45,17 @@ public class PoliPageAutoConfiguration {
 
   private static final Logger log = LoggerFactory.getLogger(PoliPageAutoConfiguration.class);
 
+  // pp_{env}_ with {env} a valid environment name, as in the SDK contract's full-key regex.
+  private static final String ENV_PREFIX =
+      "pp_(?=[a-z][a-z0-9-]{0,19}_)[a-z][a-z0-9]*(?:-[a-z0-9]+)*_";
+
   // The SDK contract's full-key regex without its ^…$ anchors: matches() anchors both ends and,
   // unlike $, also rejects a trailing newline.
-  private static final Pattern KEY_FORMAT =
-      Pattern.compile("pp_(?=[a-z][a-z0-9-]{0,19}_)[a-z][a-z0-9]*(?:-[a-z0-9]+)*_[0-9a-f]{32}");
+  private static final Pattern KEY_FORMAT = Pattern.compile(ENV_PREFIX + "[0-9a-f]{32}");
 
-  // The only part of a malformed key the warning may show: never anything after the env segment.
-  private static final Pattern SHOWN_PREFIX = Pattern.compile("pp_[A-Za-z0-9-]{1,20}_");
+  // The only part of a malformed key the warning may show. An {env} that is not a valid
+  // environment name is not shown, since it may be part of the secret.
+  private static final Pattern SHOWN_PREFIX = Pattern.compile(ENV_PREFIX);
 
   @Bean
   @ConditionalOnMissingBean

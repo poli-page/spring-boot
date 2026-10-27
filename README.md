@@ -24,7 +24,7 @@ This starter wires the Poli Page Java SDK into Spring Boot's auto-configuration 
 - Spring Boot 3.2 / 3.3 / 3.4 (Jakarta namespace only)
 - A Poli Page API key — get one at [poli.page/dashboard/keys](https://poli.page/dashboard/keys)
 
-> **Pre-release note**: as of `0.1.0-SNAPSHOT`, neither this starter nor the underlying [`page.poli:sdk`](https://github.com/poli-page/sdk-java) is on Maven Central yet. The starter depends on `page.poli:sdk:0.10.0`; until that release is published, install it locally from sdk-java's `main`: `cd ../sdk-java && ./mvnw install -DskipTests`. The coordinates below are what consumers will use once both publish to Central.
+> **Pre-release note**: as of `0.1.0-SNAPSHOT`, neither this starter nor the underlying [`page.poli:sdk`](https://github.com/poli-page/sdk-java) is on Maven Central yet. The starter depends on `page.poli:sdk:0.10.0`; until that release is published, install it locally from sdk-java's `main`: `(cd ../sdk-java && ./mvnw install -DskipTests)`. The coordinates below are what consumers will use once both publish to Central.
 
 ## Install
 

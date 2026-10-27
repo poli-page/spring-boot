@@ -59,21 +59,18 @@ For multi-megabyte PDFs, use `stream(...)`. The helper adapts the SDK's `InputSt
 
 ```java
 @GetMapping("/accounts/{id}/statement.pdf")
-public Mono<ResponseEntity<Flux<DataBuffer>>> statement(
-        @PathVariable String id,
-        @Autowired DataBufferFactory factory) {
-
+public Mono<ResponseEntity<Flux<DataBuffer>>> statement(@PathVariable String id) {
     CompletableFuture<InputStream> future = client.renderAsync().pdfStream(RenderInput.builder()
         .project("statements")
         .template("monthly")
         .data(Map.of("account_id", id))
         .build());
 
-    return responses.stream(future, "statement-" + id + ".pdf", false, factory);
+    return responses.stream(future, "statement-" + id + ".pdf", false);
 }
 ```
 
-`DataBufferFactory` is bean-injected — reactive Spring apps already have one in the context (`NettyDataBufferFactory` for the default Netty server, `DefaultDataBufferFactory` for tests).
+The helper reads into the `DataBufferFactory` that auto-configuration injects into `PoliPageReactiveResponses` — reactive Spring apps already have one in the context (`NettyDataBufferFactory` for the default Netty server, `DefaultDataBufferFactory` for tests).
 
 ### Composing with other reactive sources
 

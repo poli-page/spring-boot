@@ -7,7 +7,7 @@ Thanks for your interest in improving this starter. This guide covers setup, tes
 Install `page.poli:sdk:0.10.0` from sdk-java's `main` once (until it ships to Maven Central):
 
 ```bash
-cd ../sdk-java && ./mvnw install -DskipTests
+(cd ../sdk-java && ./mvnw install -DskipTests)
 ```
 
 Set `POLI_PAGE_API_KEY` to a sandbox key before running integration tests:

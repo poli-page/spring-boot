@@ -46,6 +46,7 @@ class PoliPageAutoConfigurationTest {
 
   private final Logger logger = (Logger) LoggerFactory.getLogger(PoliPageAutoConfiguration.class);
   private final ListAppender<ILoggingEvent> logs = new ListAppender<>();
+  private @Nullable Level savedLevel;
 
   private final ApplicationContextRunner runner =
       new ApplicationContextRunner()
@@ -59,8 +60,11 @@ class PoliPageAutoConfigurationTest {
                       .remove(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME))
           .withConfiguration(AutoConfigurations.of(PoliPageAutoConfiguration.class));
 
+  // At TRACE, so that a key logged at any level reaches the assertions.
   @BeforeEach
   void captureLogs() {
+    savedLevel = logger.getLevel();
+    logger.setLevel(Level.TRACE);
     logs.start();
     logger.addAppender(logs);
   }
@@ -68,6 +72,7 @@ class PoliPageAutoConfigurationTest {
   @AfterEach
   void releaseLogs() {
     logger.detachAppender(logs);
+    logger.setLevel(savedLevel);
   }
 
   @Test
@@ -109,6 +114,7 @@ class PoliPageAutoConfigurationTest {
             context -> {
               assertThat(context).hasFailed();
               assertThat(warnings()).isEmpty();
+              assertThat(eventsAboveWarn()).isEmpty();
             });
   }
 
@@ -124,20 +130,25 @@ class PoliPageAutoConfigurationTest {
 
   @ParameterizedTest
   @MethodSource("wellFormedKeys")
-  void wellFormedKeyStartsWithoutWarning(String key) {
+  void wellFormedKeyStartsWithoutWarning(String key, CapturedOutput output) {
     startWithKey(key);
 
     assertThat(warnings()).isEmpty();
+    assertThat(eventsAboveWarn()).isEmpty();
+    assertKeyNeverShown(key, output);
   }
 
   // Each malformed key with the only part of it the warning may show (null: none of it).
   static Stream<Arguments> malformedKeys() {
     return Stream.of(
         Arguments.of("pp_sandbox_x", "pp_sandbox_"),
-        Arguments.of("pp_Sandbox_" + SECRET, "pp_Sandbox_"),
-        Arguments.of("pp_2fa_" + SECRET, "pp_2fa_"),
-        Arguments.of("pp_a--b_" + SECRET, "pp_a--b_"),
-        Arguments.of("pp_eu-_" + SECRET, "pp_eu-_"),
+        Arguments.of("pp_eu-prod_x", "pp_eu-prod_"),
+        // An {env} outside the environment-name grammar is not shown: it may be part of the secret.
+        Arguments.of("pp_Sandbox_" + SECRET, null),
+        Arguments.of("pp_2fa_" + SECRET, null),
+        Arguments.of("pp_a--b_" + SECRET, null),
+        Arguments.of("pp_eu-_" + SECRET, null),
+        Arguments.of("pp_-eu_" + SECRET, null),
         Arguments.of("pp_eu_prod_" + SECRET, "pp_eu_"),
         // The shown prefix's 20/21 boundary, from both sides.
         Arguments.of("pp_" + ENV_20 + "_" + SECRET.toUpperCase(Locale.ROOT), "pp_" + ENV_20 + "_"),
@@ -167,7 +178,8 @@ class PoliPageAutoConfigurationTest {
             + (shownPrefix == null ? "" : "\"" + shownPrefix + "…\" ")
             + NOT_A_KEY_WARNING;
     assertThat(warnings()).containsExactly(expected);
-    assertThat(output).doesNotContain(key.strip()).doesNotContain(SECRET);
+    assertThat(eventsAboveWarn()).isEmpty();
+    assertKeyNeverShown(key, output);
   }
 
   @Test
@@ -268,8 +280,21 @@ class PoliPageAutoConfigurationTest {
 
   private List<String> warnings() {
     return logs.list.stream()
-        .filter(event -> event.getLevel().isGreaterOrEqual(Level.WARN))
+        .filter(event -> event.getLevel() == Level.WARN)
         .map(ILoggingEvent::getFormattedMessage)
         .toList();
+  }
+
+  private List<ILoggingEvent> eventsAboveWarn() {
+    return logs.list.stream()
+        .filter(event -> event.getLevel().isGreaterOrEqual(Level.ERROR))
+        .toList();
+  }
+
+  private void assertKeyNeverShown(String key, CapturedOutput output) {
+    assertThat(output).doesNotContain(key.strip()).doesNotContain(SECRET);
+    assertThat(logs.list)
+        .extracting(ILoggingEvent::getFormattedMessage)
+        .noneMatch(message -> message.contains(key.strip()) || message.contains(SECRET));
   }
 }

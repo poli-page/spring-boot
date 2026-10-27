@@ -47,9 +47,8 @@ class ErrorControllerTest {
         .value(body -> assertStrictJson(NotFoundDemo.EXPECTED_RESPONSE, body));
   }
 
-  // JSONAssert directly: BodyContentSpec#json(String, boolean) is deprecated from Spring 6.2 and
-  // its
-  // replacement is missing before it, while CI builds Spring Boot 3.2 to 3.4.
+  // JSONAssert directly: BodyContentSpec#json(String, boolean) is deprecated from Spring 6.2, and
+  // its replacement is missing before it, while CI builds Spring Boot 3.2 to 3.4.
   private static void assertStrictJson(String expected, String actual) {
     try {
       JSONAssert.assertEquals(expected, actual, true);

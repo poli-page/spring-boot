@@ -16,7 +16,7 @@ Both expose the same surface — the only difference is whether controllers retu
 - `page.poli:sdk:0.10.0` installed from sdk-java's `main` via Maven (until it publishes to Central):
 
 ```bash
-cd ../sdk-java && ./mvnw install -DskipTests
+(cd ../sdk-java && ./mvnw install -DskipTests)
 ```
 
 ## Running
