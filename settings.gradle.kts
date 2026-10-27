@@ -23,4 +23,5 @@ include(
 // is not usable as a composite. To test against unreleased SDK changes, run
 // `./mvnw install -DskipTests` inside ../sdk-java/, which publishes the artifact to
 // ~/.m2/repository; the root build.gradle.kts lists `mavenLocal()` first so Gradle
-// resolves it before Maven Central.
+// resolves it before Maven Central. Until page.poli:sdk:0.10.0 is published to Maven
+// Central, this is also how the build (and CI) resolves it, from sdk-java's main.

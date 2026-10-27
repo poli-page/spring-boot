@@ -62,7 +62,7 @@ public class PoliPageAutoConfiguration {
 Three conditionals fire in order:
 
 1. **`@ConditionalOnClass(PoliPageClient.class)`** — short-circuits the entire autoconfig when the SDK is absent (e.g. someone added the starter without `page.poli:sdk` resolving). The autoconfig class is silently skipped; no bean failures.
-2. **`@EnableConfigurationProperties`** — binds `poli-page.*` properties to the record and validates them. A bad `api-key` (missing the `pp_` prefix) fails at startup with a clear message.
+2. **`@EnableConfigurationProperties`** — binds `poli-page.*` properties to the record and validates them. A missing or blank `api-key` fails at startup with a clear message; a non-blank key that does not look like `pp_{env}_{32 hex}` logs one warning when the client bean is built, and the app starts anyway.
 3. **`@ConditionalOnMissingBean`** on the `@Bean` method — yields to your own `@Bean PoliPageClient` if you've declared one.
 
 ### The MVC and WebFlux autoconfigs

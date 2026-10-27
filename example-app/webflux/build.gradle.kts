@@ -8,6 +8,9 @@ dependencies {
     implementation(project(":poli-page-spring-boot-starter-webflux"))
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("io.micrometer:micrometer-registry-prometheus")
+
+    testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation(testFixtures(project(":poli-page-spring-boot-autoconfigure")))
 }
 
 tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {

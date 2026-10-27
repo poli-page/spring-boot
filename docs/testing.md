@@ -26,7 +26,7 @@ class InvoiceControllerTest {
     void rendersInvoicePdf() throws Exception {
         Render render = mock(Render.class);
         when(client.render()).thenReturn(render);
-        when(render.pdf(any(ProjectModeInput.class)))
+        when(render.pdf(any(RenderInput.class)))
             .thenReturn("%PDF-1.4 fake-bytes".getBytes(StandardCharsets.ISO_8859_1));
 
         mvc.perform(get("/invoices/123.pdf"))
@@ -90,7 +90,7 @@ class PoliPageEventsTest {
 
 ### Configuration validation tests
 
-When you customise validation rules (e.g. a custom `Validator` bean) or want to assert the starter's validation triggers correctly on bad input:
+When you customise validation rules (e.g. a custom `Validator` bean) or want to assert the starter's validation triggers correctly on bad input. Only a missing or blank key fails startup: a key that does not look like one starts the context with one warning, and the API decides whether it is valid.
 
 ```java
 class PoliPagePropertiesValidationTest {
@@ -99,19 +99,14 @@ class PoliPagePropertiesValidationTest {
         .withConfiguration(AutoConfigurations.of(PoliPageAutoConfiguration.class));
 
     @Test
-    void rejectsKeyWithoutPrefix() {
-        runner.withPropertyValues("poli-page.api-key=sk_live_dashboardtoken")
-            .run(context -> {
-                assertThat(context).hasFailed();
-                assertThat(context.getStartupFailure())
-                    .rootCause()
-                    .hasMessageContaining("pp_test_ or pp_live_");
-            });
+    void rejectsBlankKey() {
+        runner.withPropertyValues("poli-page.api-key=")
+            .run(context -> assertThat(context).hasFailed());
     }
 
     @Test
     void acceptsValidKey() {
-        runner.withPropertyValues("poli-page.api-key=pp_test_validkey")
+        runner.withPropertyValues("poli-page.api-key=pp_sandbox_0123456789abcdef0123456789abcdef")
             .run(context -> assertThat(context).hasNotFailed()
                 .hasSingleBean(PoliPageClient.class));
     }
@@ -135,7 +130,7 @@ class FullRenderFlowTest {
         wiremock = new WireMockServer(WireMockConfiguration.options().dynamicPort());
         wiremock.start();
         registry.add("poli-page.base-url", wiremock::baseUrl);
-        registry.add("poli-page.api-key", () -> "pp_test_fake");
+        registry.add("poli-page.api-key", () -> "pp_sandbox_0123456789abcdef0123456789abcdef");
     }
 
     @AfterAll
@@ -165,7 +160,7 @@ The starter's own `RenderAgainstDevelopApiIT` is the template. Adopt it in your 
 
 ```java
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@EnabledIfEnvironmentVariable(named = "POLI_PAGE_API_KEY", matches = "pp_(test|live)_.+")
+@EnabledIfEnvironmentVariable(named = "POLI_PAGE_API_KEY", matches = "pp_sandbox_.+")
 class PoliPageSmokeIT {
 
     @LocalServerPort int port;
@@ -184,7 +179,7 @@ class PoliPageSmokeIT {
 }
 ```
 
-`@EnabledIfEnvironmentVariable` (JUnit 5) skips the whole class when `POLI_PAGE_API_KEY` is missing — local contributor runs stay green without a key.
+`@EnabledIfEnvironmentVariable` (JUnit 5) skips the whole class unless `POLI_PAGE_API_KEY` is a sandbox key: local contributor runs stay green without a key, and the smoke test never renders into a counted environment (`live` or one created on Pro+).
 
 ## What we explicitly DON'T test
 

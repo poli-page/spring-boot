@@ -6,8 +6,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 /**
  * Runnable example MVC app demonstrating every Poli Page SDK method through the starter.
  *
- * <p>Run with: {@code POLI_PAGE_API_KEY=pp_test_… ./gradlew :example-app:mvc:bootRun}, then open <a
- * href="http://localhost:8080">http://localhost:8080</a>.
+ * <p>Run with: {@code POLI_PAGE_API_KEY=pp_sandbox_… ./gradlew :example-app:mvc:bootRun}, then open
+ * <a href="http://localhost:8080">http://localhost:8080</a>.
  */
 @SpringBootApplication
 public class ExampleApplication {

@@ -6,7 +6,7 @@
 
 The starter is configured exclusively through Spring Boot's `@ConfigurationProperties` mechanism. There's no `init()` method to call, no static `PoliPage.configure(...)` to invoke, no Java-side builder you have to construct. You set `poli-page.api-key` and the autoconfig produces a `PoliPageClient` bean. Anything else you set tunes that bean; anything you leave unset falls through to the SDK's own defaults — meaning a future SDK release that bumps the default `requestTimeout` from 60 s to 90 s takes effect for your app without a starter upgrade.
 
-The properties record is validated at startup via Jakarta Bean Validation. Bad input — a malformed `api-key`, a zero-duration `requestTimeout`, a 12-retry `maxAttempts` — fails the boot with a clear `BindValidationException`, not at first call.
+The properties record is validated at startup via Jakarta Bean Validation. Bad input — a missing or blank `api-key`, a zero-duration `requestTimeout`, a 12-retry `maxAttempts` — fails the boot with a clear `BindValidationException`, not at first call. The key's format is not validated: the API is the only authority on keys, so a key that does not look like one gets one startup warning and the app starts anyway.
 
 ## How
 
@@ -14,7 +14,7 @@ The properties record is validated at startup via Jakarta Bean Validation. Bad i
 
 ```yaml
 poli-page:
-  api-key: ${POLI_PAGE_API_KEY}                # REQUIRED — must match pp_(test|live)_.+
+  api-key: ${POLI_PAGE_API_KEY}                # REQUIRED, not blank — e.g. pp_sandbox_…
   base-url:                                    # optional URI, e.g. https://api.poli.page
   request-timeout:                             # optional Duration, e.g. 30s, PT1M
   retries:
@@ -34,10 +34,7 @@ Bound to the `PoliPageProperties` record:
 @ConfigurationProperties("poli-page")
 @Validated
 public record PoliPageProperties(
-    @NotBlank @Pattern(regexp = "^pp_(test|live)_.+$",
-        message = "Poli Page API key must start with pp_test_ or pp_live_. " +
-                  "Get one at https://poli.page/dashboard/keys.")
-    String apiKey,
+    @NotBlank String apiKey,
     @Nullable URI baseUrl,
     @Nullable @DurationRange(minMillis = 1_000L, maxMillis = 600_000L) Duration requestTimeout,
     @NotNull Retries retries,
@@ -59,7 +56,7 @@ public record PoliPageProperties(
 
 | Property | Type | Required | Default | Notes |
 |---|---|---|---|---|
-| `poli-page.api-key` | `String` | yes | — | Must match `pp_test_` or `pp_live_`. Failed validation surfaces at startup. |
+| `poli-page.api-key` | `String` | yes | — | `pp_{env}_{32 hex}` (`pp_sandbox_…`, `pp_live_…`, `pp_staging_…`): the key selects the environment. A missing or blank key fails startup; any other value starts the app, with one warning when it does not look like a key (see [Key format warning](#key-format-warning)). |
 | `poli-page.base-url` | `URI` | no | SDK default (`https://api.poli.page`) | Must be absolute. Used for staging / self-hosted deployments. |
 | `poli-page.request-timeout` | `Duration` | no | SDK default (60 s) | Per-attempt request timeout. Spring Boot relaxed binding accepts `30s`, `1m`, `PT45S`. |
 | `poli-page.retries.max-attempts` | `Integer` | no | SDK default (2) | Number of retries on top of the initial request. `0` disables retries. |
@@ -84,7 +81,7 @@ poli-page:
   api-key: ${POLI_PAGE_API_KEY}
 ```
 
-That's all you need. With this file and a `POLI_PAGE_API_KEY=pp_test_...` in the environment, the autoconfig produces a fully-functional `PoliPageClient` bean.
+That's all you need. With this file and a `POLI_PAGE_API_KEY=pp_sandbox_...` in the environment, the autoconfig produces a fully-functional `PoliPageClient` bean.
 
 ### A staging-vs-production split
 
@@ -95,7 +92,7 @@ poli-page:
 
 # application-staging.yml (activated by SPRING_PROFILES_ACTIVE=staging)
 poli-page:
-  base-url: https://api-staging.poli.page
+  api-key: ${POLI_PAGE_STAGING_API_KEY}   # a pp_staging_… key: the key selects the environment
   request-timeout: 30s
 
 # application-prod.yml
@@ -121,16 +118,14 @@ Description:
 Binding to target [Bindable@... type = page.poli.sdk.spring.PoliPageProperties] failed:
 
     Property: poli-page.api-key
-    Value: "sk_live_dashboardtoken"
+    Value: ""
     Origin: System Environment Property "POLI_PAGE_API_KEY"
-    Reason: Poli Page API key must start with pp_test_ or pp_live_. Get one at https://poli.page/dashboard/keys.
+    Reason: must not be blank
 
 Action:
 
 Update your application's configuration
 ```
-
-This is the path that catches the #1 misconfiguration: pasting a dashboard token instead of an API key. The match is regex `^pp_(test|live)_.+$` — fail-loud, not fail-quiet.
 
 Other validations:
 
@@ -139,13 +134,29 @@ Other validations:
 - `retries.max-attempts: -1` → `Min` rejection.
 - `retries.max-attempts: 11` → `Max` rejection.
 
+### Key format warning
+
+The API is the only authority on keys, so the starter never rejects a non-blank key. When the client bean is built, it compares the key with the SDK contract's full-key regex:
+
+```text
+^pp_(?=[a-z][a-z0-9-]{0,19}_)[a-z][a-z0-9]*(?:-[a-z0-9]+)*_[0-9a-f]{32}$
+```
+
+A key that does not match (for example `pp_sandbox_x`, `pp_Sandbox_…`, a 21-character environment name, or a dashboard token such as `sk_live_…`) logs exactly one warning and the app starts anyway:
+
+```
+WARN  page.poli.sdk.spring.PoliPageAutoConfiguration : Poli Page API key "pp_sandbox_…" does not look like pp_{environment}_{32 hex characters}; starting anyway, the API decides whether it is valid.
+```
+
+The warning shows at most the `pp_{env}_` part (only for an environment segment of 1 to 20 characters), never the secret. The first call then fails with the API's answer: `401 INVALID_API_KEY`, or `401 MISSING_API_KEY` for a value without `pp_`.
+
 ## IDE auto-completion
 
 The starter ships `META-INF/spring-configuration-metadata.json` so IntelliJ IDEA, VS Code (with the Spring Tools extension), and Eclipse STS suggest `poli-page.*` keys as you type, with type hints, default values, and descriptions sourced from the record's Javadoc. No extra plugin needed — Spring Boot's tooling reads this file by convention.
 
 ```yaml
 poli-page:
-  api  # IDE shows: api-key (String, REQUIRED) — Your Poli Page API key. Find one at https://poli.page/dashboard/keys.
+  api  # IDE shows: api-key (String, REQUIRED) — Your Poli Page API key, for example pp_sandbox_... or pp_live_.... (…)
 ```
 
 ## Externalising secrets
@@ -167,7 +178,7 @@ A `application-local.yml` not under version control:
 
 ```yaml
 poli-page:
-  api-key: pp_test_...
+  api-key: pp_sandbox_...
 ```
 
 Activate with `SPRING_PROFILES_ACTIVE=local` during development. Add `application-local.yml` to `.gitignore`.

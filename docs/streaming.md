@@ -26,10 +26,9 @@ public class StatementController {
 
     @GetMapping("/accounts/{id}/statement.pdf")
     public ResponseEntity<StreamingResponseBody> statement(@PathVariable String id) {
-        InputStream stream = client.render().pdfStream(ProjectModeInput.builder()
+        InputStream stream = client.render().pdfStream(RenderInput.builder()
             .project("statements")
             .template("monthly")
-            .version("2.3.0")
             .data(Map.of("account_id", id))
             .build());
 

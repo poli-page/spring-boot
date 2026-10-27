@@ -18,18 +18,20 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import page.poli.sdk.PoliPageClient;
-import page.poli.sdk.input.ProjectModeInput;
+import page.poli.sdk.input.RenderInput;
 
 /**
  * One happy-path integration test against the live API.
  *
- * <p>Skipped automatically when {@code POLI_PAGE_API_KEY} is unset, so contributor PRs without a
- * key still get a green local run. Boots a minimal Spring Boot app with the MVC starter and a
- * single controller; hits it via {@link TestRestTemplate}; asserts the response is a real PDF.
+ * <p>Runs only when {@code POLI_PAGE_API_KEY} holds a sandbox key ({@code pp_sandbox_…}): it is
+ * skipped when the key is unset, so contributor PRs without a key still get a green local run, and
+ * when it belongs to any other environment, so the test never renders into a counted one. Boots a
+ * minimal Spring Boot app with the MVC starter and a single controller; hits it via {@link
+ * TestRestTemplate}; asserts the response is a real PDF.
  *
- * <p>To run locally: {@code POLI_PAGE_API_KEY=pp_test_… ./gradlew
- * :poli-page-spring-boot-starter:test}. Set {@code POLI_PAGE_TEST_BASE_URL} to target an
- * environment other than the SDK default.
+ * <p>To run locally: {@code POLI_PAGE_API_KEY=pp_sandbox_… ./gradlew
+ * :poli-page-spring-boot-starter:test}. Set {@code POLI_PAGE_TEST_BASE_URL} to target an API
+ * deployment other than the SDK default.
  */
 @SpringBootTest(
     classes = RenderAgainstDevelopApiIT.IntegrationApp.class,
@@ -39,7 +41,7 @@ import page.poli.sdk.input.ProjectModeInput;
       "spring.main.banner-mode=off",
       "logging.level.root=WARN"
     })
-@EnabledIfEnvironmentVariable(named = "POLI_PAGE_API_KEY", matches = "pp_(test|live)_.+")
+@EnabledIfEnvironmentVariable(named = "POLI_PAGE_API_KEY", matches = "pp_sandbox_.+")
 class RenderAgainstDevelopApiIT {
 
   @LocalServerPort int port;
@@ -84,10 +86,9 @@ class RenderAgainstDevelopApiIT {
           client
               .render()
               .pdf(
-                  ProjectModeInput.builder()
+                  RenderInput.builder()
                       .project("getting-started")
                       .template("welcome")
-                      .version("1.0.0")
                       .data(Map.of("name", "spring-boot-starter integration test"))
                       .build());
       return responses.bytes(pdf, "welcome.pdf");

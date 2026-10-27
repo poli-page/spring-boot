@@ -10,7 +10,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import page.poli.sdk.model.DocumentDescriptor;
 import page.poli.sdk.model.DocumentPreviewResult;
-import page.poli.sdk.model.PreviewResult;
 import page.poli.sdk.spring.internal.ContentDispositionHeader;
 
 /**
@@ -86,16 +85,6 @@ public final class PoliPageResponses {
           }
         };
     return ResponseEntity.ok().headers(headers).body(body);
-  }
-
-  /**
-   * Wrap a {@link PreviewResult} HTML body in a {@link ResponseEntity}.
-   *
-   * @param preview the SDK-rendered preview — non-null
-   * @return a response with {@code Content-Type: text/html; charset=utf-8}
-   */
-  public ResponseEntity<String> preview(PreviewResult preview) {
-    return htmlResponse(preview.html());
   }
 
   /**

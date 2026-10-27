@@ -21,7 +21,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import page.poli.sdk.model.DocumentDescriptor;
 import page.poli.sdk.model.DocumentPreviewResult;
-import page.poli.sdk.model.PreviewResult;
 
 class PoliPageResponsesTest {
 
@@ -143,18 +142,6 @@ class PoliPageResponsesTest {
   }
 
   @Test
-  void previewReturnsHtmlResponseFromPreviewResult() {
-    PreviewResult preview = new PreviewResult("<h1>hi</h1>", 1, "sandbox");
-
-    ResponseEntity<String> response = responses.preview(preview);
-
-    assertThat(response.getHeaders().getContentType())
-        .isEqualTo(new MediaType("text", "html", StandardCharsets.UTF_8));
-    assertThat(response.getHeaders().getCacheControl()).isEqualTo("private, no-store");
-    assertThat(response.getBody()).isEqualTo("<h1>hi</h1>");
-  }
-
-  @Test
   void previewReturnsHtmlResponseFromDocumentPreviewResult() {
     DocumentPreviewResult preview = new DocumentPreviewResult("<p>doc html</p>", 5);
 
@@ -162,6 +149,7 @@ class PoliPageResponsesTest {
 
     assertThat(response.getHeaders().getContentType())
         .isEqualTo(new MediaType("text", "html", StandardCharsets.UTF_8));
+    assertThat(response.getHeaders().getCacheControl()).isEqualTo("private, no-store");
     assertThat(response.getBody()).isEqualTo("<p>doc html</p>");
   }
 
@@ -171,7 +159,6 @@ class PoliPageResponsesTest {
         new DocumentDescriptor(
             "doc_abc",
             "org_x",
-            null,
             null,
             null,
             null,

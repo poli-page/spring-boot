@@ -8,11 +8,11 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 import page.poli.sdk.PoliPageClient;
-import page.poli.sdk.input.ProjectModeInput;
+import page.poli.sdk.input.RenderInput;
 
 /**
- * Demo step 3 — invokes {@link PoliPageClient#renderToFile(ProjectModeInput, Path)} from a Spring
- * {@link ApplicationRunner} when the app is launched with {@code --render-to-file=PATH}.
+ * Demo step 3 — invokes {@link PoliPageClient#renderToFile(RenderInput, Path)} from a Spring {@link
+ * ApplicationRunner} when the app is launched with {@code --render-to-file=PATH}.
  *
  * <p>Example: {@code ./gradlew :example-app:mvc:bootRun --args='--render-to-file=./welcome.pdf'}.
  *
@@ -38,10 +38,9 @@ public class RenderToFileRunner implements ApplicationRunner {
     String target = args.getOptionValues("render-to-file").get(0);
     Path path = Path.of(target);
     client.renderToFile(
-        ProjectModeInput.builder()
+        RenderInput.builder()
             .project("getting-started")
             .template("welcome")
-            .version("1.0.0")
             .data(Map.of("name", "renderToFile demo"))
             .build(),
         path);

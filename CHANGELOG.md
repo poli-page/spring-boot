@@ -7,6 +7,16 @@ All notable changes to `page.poli:poli-page-spring-boot-starter` (and the siblin
 ### Added
 - Initial release scaffolding.
 
+### Changed
+- **Breaking:** environment keys. A key is `pp_{env}_{32 hex}` and selects its environment (`pp_sandbox_…`, `pp_live_…`, `pp_staging_…`). `poli-page.api-key` is still required and must not be blank, but its `(test|live)` prefix check is gone: a key that does not match the SDK contract's full-key regex logs one startup warning (showing at most the `pp_{env}_` part, never the secret) and the app starts anyway; the API decides whether it is valid.
+- **Breaking:** depends on `page.poli:sdk:0.10.0` (was `1.0.0-SNAPSHOT`): render inputs are `RenderInput`, with no `version`.
+- Example apps (MVC and WebFlux): render inputs carry no `version`, `POLI_PAGE_BASE_URL` optionally overrides the API URL, and the error demo is `GET /errors/not-found` (template `does-not-exist`, data `{}`, answering `404 TEMPLATE_NOT_FOUND` with its `code`, `status`, `message` and `requestId`), replacing `GET /errors/bad-version`. Each app now tests that contract against a stubbed API.
+- `RenderAgainstDevelopApiIT` runs only with a sandbox key (`POLI_PAGE_API_KEY` matching `pp_sandbox_.+`).
+
+### Removed
+- **Breaking:** `PoliPageResponses.preview(PreviewResult)` and `PoliPageReactiveResponses.previewFromRender(...)`, with the SDK's render preview. `PoliPageResponses.preview(DocumentPreviewResult)` and `PoliPageReactiveResponses.previewFromDocument(...)` stay.
+- The example apps' `GET /render/preview` route and its dashboard button.
+
 ### Fixed
 - `PoliPageResponses` / `PoliPageReactiveResponses`: the `Content-Disposition` filename is now escaped per RFC 6266 / RFC 9110 (`\` and `"` as quoted-pairs, ASCII fallback included) and stripped of control characters (CR/LF, TAB, DEL, C1). Spring's `ContentDisposition` builder is no longer used: its UTF-8 mode emits an RFC 2047 `=?UTF-8?Q?…?=` fallback with `"` and `\` unescaped, so a crafted filename could break out of the quoted-string. ASCII filenames now get a plain `filename="…"` instead of a Q-encoded one.
 

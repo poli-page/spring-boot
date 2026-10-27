@@ -29,10 +29,9 @@ public class InvoiceController {
 
     @GetMapping(value = "/{id}.pdf", produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<byte[]> invoice(@PathVariable String id) {
-        byte[] pdf = client.render().pdf(ProjectModeInput.builder()
+        byte[] pdf = client.render().pdf(RenderInput.builder()
             .project("billing")
             .template("invoice")
-            .version("1.0.0")
             .data(Map.of("invoice_id", id))
             .build());
         return responses.bytes(pdf, "invoice-" + id + ".pdf");
@@ -68,10 +67,9 @@ For multi-megabyte PDFs, use `pdfStream()` (the SDK's `InputStream` variant) and
 ```java
 @GetMapping("/{id}/statement.pdf")
 public ResponseEntity<StreamingResponseBody> statement(@PathVariable String id) {
-    InputStream stream = client.render().pdfStream(ProjectModeInput.builder()
+    InputStream stream = client.render().pdfStream(RenderInput.builder()
         .project("statements")
         .template("monthly")
-        .version("2.3.0")
         .data(Map.of("account_id", id))
         .build());
     return responses.stream(stream, "statement-" + id + ".pdf");
@@ -80,19 +78,14 @@ public ResponseEntity<StreamingResponseBody> statement(@PathVariable String id) 
 
 The helper wraps the stream copy in a `try-with-resources`, so the SDK connection is released even if the client disconnects mid-download. `Content-Length` is omitted unless the upstream stream reports a known size (it usually doesn't for chunked transfers — fine; the response uses transfer-encoding chunked).
 
-### HTML preview (no PDF)
+### Stored-document HTML preview
 
-`Render.preview(...)` returns the HTML body without storing a document. Wrap it for the browser:
+`client.documents().preview(documentId)` returns the stored HTML of a document rendered with `render().document(...)`, as a `DocumentPreviewResult`. Wrap it for the browser:
 
 ```java
-@GetMapping("/{id}/preview")
-public ResponseEntity<String> preview(@PathVariable String id) {
-    PreviewResult preview = client.render().preview(ProjectModeInput.builder()
-        .project("billing")
-        .template("invoice")
-        .version("1.0.0")
-        .data(Map.of("invoice_id", id))
-        .build());
+@GetMapping("/documents/{documentId}/preview")
+public ResponseEntity<String> preview(@PathVariable String documentId) {
+    DocumentPreviewResult preview = client.documents().preview(documentId);
     return responses.preview(preview);
 }
 ```
@@ -104,7 +97,7 @@ Content-Type: text/html; charset=utf-8
 Cache-Control: private, no-store
 ```
 
-The same helper accepts `DocumentPreviewResult` from `client.documents().preview(documentId)` — preview a stored document by id.
+There is no render-time preview: render a document, then preview it by id.
 
 ### 302 redirect to the presigned URL
 

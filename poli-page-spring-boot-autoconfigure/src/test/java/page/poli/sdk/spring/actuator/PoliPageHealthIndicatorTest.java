@@ -5,6 +5,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static org.assertj.core.api.Assertions.assertThat;
+import static page.poli.sdk.spring.TestKeys.SANDBOX_KEY;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import java.net.URI;
@@ -69,7 +70,7 @@ class PoliPageHealthIndicatorTest {
 
   private PoliPageProperties propertiesFor(int port) {
     return new PoliPageProperties(
-        "pp_test_x",
+        SANDBOX_KEY,
         URI.create("http://127.0.0.1:" + port),
         null,
         new PoliPageProperties.Retries(null, null),

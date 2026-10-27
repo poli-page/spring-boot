@@ -8,7 +8,7 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 import page.poli.sdk.PoliPageClient;
-import page.poli.sdk.input.ProjectModeInput;
+import page.poli.sdk.input.RenderInput;
 
 /** Demo step 3 — reactive variant uses {@code renderToFileAsync}, awaited on startup. */
 @Component
@@ -30,10 +30,9 @@ public class RenderToFileRunner implements ApplicationRunner {
     Path path = Path.of(args.getOptionValues("render-to-file").get(0));
     client
         .renderToFileAsync(
-            ProjectModeInput.builder()
+            RenderInput.builder()
                 .project("getting-started")
                 .template("welcome")
-                .version("1.0.0")
                 .data(Map.of("name", "renderToFile demo (reactive)"))
                 .build(),
             path)

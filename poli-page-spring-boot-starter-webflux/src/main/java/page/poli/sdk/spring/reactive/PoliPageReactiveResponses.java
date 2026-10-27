@@ -13,7 +13,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import page.poli.sdk.model.DocumentDescriptor;
 import page.poli.sdk.model.DocumentPreviewResult;
-import page.poli.sdk.model.PreviewResult;
 import page.poli.sdk.spring.internal.ContentDispositionHeader;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -80,20 +79,8 @@ public final class PoliPageReactiveResponses {
   }
 
   /**
-   * Wrap an asynchronous {@link PreviewResult} (from {@code client.renderAsync().preview(...)}) in
-   * a Mono of HTML response.
-   */
-  public Mono<ResponseEntity<String>> previewFromRender(CompletableFuture<PreviewResult> future) {
-    return Mono.fromFuture(future, false).map(p -> htmlResponse(p.html()));
-  }
-
-  /**
    * Wrap an asynchronous {@link DocumentPreviewResult} (from {@code
    * client.documentsAsync().preview(id)}) in a Mono of HTML response.
-   *
-   * <p>(Two method names rather than overloaded {@code preview(...)} because Java type erasure
-   * collapses {@code CompletableFuture<PreviewResult>} and {@code
-   * CompletableFuture<DocumentPreviewResult>} to the same signature at compile time.)
    */
   public Mono<ResponseEntity<String>> previewFromDocument(
       CompletableFuture<DocumentPreviewResult> future) {

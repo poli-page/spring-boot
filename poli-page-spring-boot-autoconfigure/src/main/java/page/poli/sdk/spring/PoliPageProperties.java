@@ -4,7 +4,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 import java.net.URI;
 import java.time.Duration;
 import org.jspecify.annotations.Nullable;
@@ -22,7 +21,10 @@ import page.poli.sdk.spring.validation.DurationRange;
  * defaults — so a future SDK release that bumps a default takes effect automatically without a
  * starter release.
  *
- * @param apiKey the API key — required, must start with {@code pp_test_} or {@code pp_live_}
+ * @param apiKey the API key — required and not blank. A key has the form {@code
+ *     pp_{environment}_{32 hex characters}} ({@code pp_sandbox_…}, {@code pp_live_…}, {@code
+ *     pp_staging_…}); any other value logs one warning at startup and is passed to the API, which
+ *     decides whether it is valid
  * @param baseUrl optional base URL of the API; defaults to {@code https://api.poli.page}
  * @param requestTimeout optional per-attempt request timeout; defaults to 60 s
  * @param retries retry-policy nested record
@@ -33,13 +35,7 @@ import page.poli.sdk.spring.validation.DurationRange;
 @ConfigurationProperties("poli-page")
 @Validated
 public record PoliPageProperties(
-    @NotBlank
-        @Pattern(
-            regexp = "^pp_(test|live)_.+$",
-            message =
-                "Poli Page API key must start with pp_test_ or pp_live_. "
-                    + "Get one at https://poli.page/dashboard/keys.")
-        String apiKey,
+    @NotBlank String apiKey,
     @Nullable URI baseUrl,
     @Nullable @DurationRange(minMillis = 1_000L, maxMillis = 600_000L) Duration requestTimeout,
     @Valid @DefaultValue Retries retries,

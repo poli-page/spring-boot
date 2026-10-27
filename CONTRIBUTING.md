@@ -4,16 +4,16 @@ Thanks for your interest in improving this starter. This guide covers setup, tes
 
 ## Setup
 
-Install the local SDK snapshot once (until `page.poli:sdk` ships to Maven Central):
+Install `page.poli:sdk:0.10.0` from sdk-java's `main` once (until it ships to Maven Central):
 
 ```bash
 cd ../sdk-java && ./mvnw install -DskipTests
 ```
 
-Set `POLI_PAGE_API_KEY` in your environment (a `pp_test_*` key is fine) before running integration tests:
+Set `POLI_PAGE_API_KEY` to a sandbox key before running integration tests:
 
 ```bash
-export POLI_PAGE_API_KEY=pp_test_…
+export POLI_PAGE_API_KEY=pp_sandbox_…
 ```
 
 ## Tests
@@ -32,7 +32,7 @@ Per-module:
 ./gradlew --no-daemon :poli-page-spring-boot-starter-webflux:test
 ```
 
-Integration tests are skipped automatically when `POLI_PAGE_API_KEY` is unset, so PR contributors without a key still get a green local run.
+Integration tests run only when `POLI_PAGE_API_KEY` is a sandbox key (`pp_sandbox_…`). They are skipped when it is unset, so PR contributors without a key still get a green local run, and when it belongs to any other environment, so they never render into a counted one. Set `POLI_PAGE_TEST_BASE_URL` to target an API deployment other than the SDK default.
 
 ## Lint, format, build
 

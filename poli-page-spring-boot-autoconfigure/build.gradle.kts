@@ -1,7 +1,11 @@
+plugins {
+    `java-test-fixtures`
+}
+
 description = "Common auto-configuration for the Poli Page Spring Boot starter (MVC + WebFlux share this)"
 
 dependencies {
-    api("page.poli:sdk:1.0.0-SNAPSHOT")
+    api("page.poli:sdk:0.10.0")
     api("org.springframework.boot:spring-boot-autoconfigure")
 
     // Optional dependencies — beans are @ConditionalOnClass so consumers without these still get a working starter.
@@ -18,5 +22,7 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-validation")
     testImplementation("org.springframework.boot:spring-boot-starter-actuator")
     testImplementation("io.micrometer:micrometer-core")
-    testImplementation("org.wiremock:wiremock-standalone:3.9.1")
+
+    // Shared with the example apps' tests: the test keys and the stubbed API.
+    testFixturesApi("org.wiremock:wiremock-standalone:3.9.1")
 }

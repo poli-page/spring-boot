@@ -39,10 +39,9 @@ public class InvoiceController {
 
     @GetMapping("/{id}.pdf")
     public Mono<ResponseEntity<byte[]>> invoice(@PathVariable String id) {
-        CompletableFuture<byte[]> future = client.renderAsync().pdf(ProjectModeInput.builder()
+        CompletableFuture<byte[]> future = client.renderAsync().pdf(RenderInput.builder()
             .project("billing")
             .template("invoice")
-            .version("1.0.0")
             .data(Map.of("invoice_id", id))
             .build());
         return responses.bytes(future, "invoice-" + id + ".pdf");
@@ -64,10 +63,9 @@ public Mono<ResponseEntity<Flux<DataBuffer>>> statement(
         @PathVariable String id,
         @Autowired DataBufferFactory factory) {
 
-    CompletableFuture<InputStream> future = client.renderAsync().pdfStream(ProjectModeInput.builder()
+    CompletableFuture<InputStream> future = client.renderAsync().pdfStream(RenderInput.builder()
         .project("statements")
         .template("monthly")
-        .version("2.3.0")
         .data(Map.of("account_id", id))
         .build());
 
@@ -87,10 +85,9 @@ public Mono<ResponseEntity<byte[]>> report(@PathVariable String id) {
 
     return Mono.zip(account, txns)
         .flatMap(tuple -> {
-            CompletableFuture<byte[]> pdf = client.renderAsync().pdf(ProjectModeInput.builder()
+            CompletableFuture<byte[]> pdf = client.renderAsync().pdf(RenderInput.builder()
                 .project("reports")
                 .template("monthly")
-                .version("1.0.0")
                 .data(Map.of(
                     "account", tuple.getT1(),
                     "transactions", tuple.getT2()))
@@ -131,10 +128,9 @@ public class PoliPageRoutes {
             PoliPageClient client,
             PoliPageReactiveResponses responses) {
         return route(GET("/welcome.pdf"), req -> {
-            CompletableFuture<byte[]> pdf = client.renderAsync().pdf(ProjectModeInput.builder()
+            CompletableFuture<byte[]> pdf = client.renderAsync().pdf(RenderInput.builder()
                 .project("getting-started")
                 .template("welcome")
-                .version("1.0.0")
                 .data(Map.of("name", req.queryParam("name").orElse("World")))
                 .build());
 
