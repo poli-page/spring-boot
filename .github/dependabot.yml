@@ -1,0 +1,26 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: daily
+    # Dependabot waits 3 days after a release by default; a new API contract arrives the next day.
+    cooldown:
+      default-days: 3
+      exclude:
+        - 'poli-page/api-contract'
+    groups:
+      api-contract:
+        patterns:
+          - 'poli-page/api-contract'
+      actions:
+        patterns:
+          - '*'
+        exclude-patterns:
+          - 'poli-page/api-contract'
+
+  # The starters, the SDK (page.poli:sdk) and both example apps: one Gradle build at the root.
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
