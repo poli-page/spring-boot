@@ -19,7 +19,7 @@ class PoliPageExceptionHandlerLoggingTest {
 
   private final Logger logger = (Logger) LoggerFactory.getLogger(PoliPageExceptionHandler.class);
   private final ListAppender<ILoggingEvent> logs = new ListAppender<>();
-  private final PoliPageExceptionHandler handler = new PoliPageExceptionHandler();
+  private final PoliPageExceptionHandler handler = new PoliPageExceptionHandler() {};
 
   @BeforeEach
   void capture() {

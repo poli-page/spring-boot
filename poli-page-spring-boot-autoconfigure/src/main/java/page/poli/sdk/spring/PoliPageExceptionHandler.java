@@ -14,33 +14,39 @@ import page.poli.sdk.exception.PoliPageException;
  * HTTP status is the payload's {@code status} ({@code 503} for {@code network_error}, {@code 504}
  * for {@code timeout}), or {@code 500} when the payload has none.
  *
- * <p>The starters register a stack-specific {@code @RestControllerAdvice} subclass of this class
- * ({@code PoliPageWebMvcExceptionHandler} in Spring MVC, {@code PoliPageWebFluxExceptionHandler} in
- * Spring WebFlux) unless {@code poli-page.error-handler.enabled} is {@code false} or the
- * application declares its own {@code PoliPageExceptionHandler} bean. That advice has the lowest
- * precedence: Spring answers an exception with the first {@code @ControllerAdvice}, in order, that
- * has any matching handler, so an application advice that handles {@code PoliPageException} or a
- * supertype such as {@code Exception}, ordered or not, normally answers instead. An application
- * with such a catch-all keeps the SDK payload by handling {@code PoliPageException} in an advice
- * ordered before it and delegating to {@link #handlePoliPageException(PoliPageException)} of this
- * bean.
+ * <p>This class is not an advice itself. The starters register a stack-specific
+ * {@code @RestControllerAdvice} subclass ({@code PoliPageWebMvcExceptionHandler} in Spring MVC,
+ * which also removes PDF headers already on the response and never appends JSON to a response
+ * already sent; {@code PoliPageWebFluxExceptionHandler} in Spring WebFlux) unless {@code
+ * poli-page.error-handler.enabled} is {@code false} or the application declares its own {@code
+ * PoliPageExceptionHandler} bean. Such a replacement must itself be a {@code @ControllerAdvice},
+ * for example a subclass of the stack's handler; any other bean of this type leaves SDK errors
+ * unhandled.
+ *
+ * <p>The advice has the lowest precedence: Spring answers an exception with the first
+ * {@code @ControllerAdvice}, in order, that has any matching handler, so an application advice that
+ * handles {@code PoliPageException} or a supertype such as {@code Exception}, ordered or not,
+ * normally answers instead. An application with such a catch-all keeps the SDK answer by handling
+ * {@code PoliPageException} in an advice ordered before it and delegating to {@link
+ * #handlePoliPageException(PoliPageException)} of the injected {@code PoliPageExceptionHandler}
+ * bean: in MVC that bean is the MVC handler, whose override does the header clean-up too.
  *
  * <p>Each answered error is logged on this class's logger: at {@code ERROR} for a 5xx or an error
  * with no status, at {@code WARN} otherwise. The log line names the code, status, request id and
  * message, never the API key.
  */
-public class PoliPageExceptionHandler {
+public abstract class PoliPageExceptionHandler {
 
   /** The HTTP status for an error whose payload has no status. */
   static final int FALLBACK_STATUS = 500;
 
   private static final Logger log = LoggerFactory.getLogger(PoliPageExceptionHandler.class);
 
-  /** Creates the handler. */
-  public PoliPageExceptionHandler() {}
+  /** For the stack-specific subclasses. */
+  protected PoliPageExceptionHandler() {}
 
   /**
-   * Answers the error's payload.
+   * Answers the error's payload. Subclasses may first adapt the response (see the MVC handler).
    *
    * @param ex the SDK error
    * @return the payload's status (or {@code 500}) with the payload as a JSON body

@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static page.poli.sdk.spring.TestKeys.SANDBOX_KEY;
 
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -66,13 +68,29 @@ class PoliPageWebMvcExceptionHandlerServerTest {
     assertThat(response.headers().firstValue("Content-Type")).hasValue("application/json");
     assertThat(response.headers().firstValue("Content-Disposition")).isEmpty();
     assertThat(response.headers().firstValue("Content-Language")).isEmpty();
-    assertThat(response.headers().firstValue("X-Kept")).hasValue("yes");
+    assertThat(response.headers().allValues("X-Kept")).containsExactly("yes");
+    assertThat(response.headers().allValues("Vary")).containsExactly("Origin", "Accept-Language");
     assertStrictJson(
         """
         {"code": "TEMPLATE_NOT_FOUND", "message": "Template not found.",
          "status": 404, "requestId": "req_123"}
         """,
         response.body());
+  }
+
+  @Test
+  void restoredHeadersAreNotDuplicated() throws Exception {
+    HttpResponse<String> response = get("/session-then-error");
+
+    assertThat(response.statusCode()).isEqualTo(404);
+    assertThat(response.headers().firstValue("Content-Disposition")).isEmpty();
+    assertThat(response.headers().allValues("Date")).hasSize(1);
+    assertThat(response.headers().allValues("Set-Cookie"))
+        .filteredOn(cookie -> cookie.startsWith("JSESSIONID="))
+        .hasSize(1);
+    assertThat(response.headers().allValues("Set-Cookie"))
+        .filteredOn(cookie -> cookie.startsWith("app="))
+        .hasSize(1);
   }
 
   @Test
@@ -125,6 +143,17 @@ class PoliPageWebMvcExceptionHandlerServerTest {
       response.setHeader("Content-Disposition", "attachment; filename=\"x.pdf\"");
       response.setHeader("Content-Language", "fr");
       response.setHeader("X-Kept", "yes");
+      response.addHeader("Vary", "Origin");
+      response.addHeader("Vary", "Accept-Language");
+      throw new PoliPageException(
+          "TEMPLATE_NOT_FOUND", 404, "Template not found.", "req_123", null);
+    }
+
+    @GetMapping("/session-then-error")
+    String sessionThenError(HttpServletRequest request, HttpServletResponse response) {
+      request.getSession(true);
+      response.addCookie(new Cookie("app", "1"));
+      response.setHeader("Content-Disposition", "attachment; filename=\"x.pdf\"");
       throw new PoliPageException(
           "TEMPLATE_NOT_FOUND", 404, "Template not found.", "req_123", null);
     }

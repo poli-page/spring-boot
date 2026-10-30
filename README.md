@@ -181,8 +181,8 @@ Both starters register a default error handler, a `@RestControllerAdvice` (`Poli
 
 - The HTTP status is the payload's `status`: the API's status, `503` for `network_error`, `504` for `timeout`. An error with no status (for example `aborted`) answers `500`, with `"status": null` in the body.
 - `requestId` is the API's `x-request-id`, or `null` when unknown. The `null` fields stay in the body even when you set `spring.jackson.default-property-inclusion=non_null`.
-- `Content-Type: application/json`. In MVC, PDF headers already set on the response (`Content-Disposition` and the other content headers, for example from `PoliPageResponses.stream` when the first read of the PDF fails) are removed first, so the error is not saved as a PDF. When part of the PDF was already sent, nothing is written and the connection is closed, so the client sees a truncated download rather than a PDF with JSON appended.
-- Each answered error is logged on `page.poli.sdk.spring.PoliPageExceptionHandler`: `ERROR` for a 5xx or no status, `WARN` otherwise, with the code, status, request id and message (never the API key).
+- `Content-Type: application/json`. In MVC, PDF headers already set on the response (`Content-Disposition` and the other content headers, for example from `PoliPageResponses.stream` when the first read of the PDF fails) are removed first, so the error is not saved as a PDF. When part of the PDF was already sent, nothing is written and the error is rethrown: Tomcat and Jetty then close the connection, so the client sees a truncated download; Undertow ends the response normally, so the PDF is cut short with no error signal. JSON is never appended to the PDF.
+- Each answered error is logged on `page.poli.sdk.spring.PoliPageExceptionHandler`: `ERROR` for a 5xx or no status, `WARN` otherwise, with the code, status, request id and message (never the API key). In MVC, an error after part of the PDF was sent gets one `WARN` line from `PoliPageWebMvcExceptionHandler`; the servlet container logs the rethrown error itself.
 - Like any `@ControllerAdvice`, it covers annotated controllers only: errors from servlet filters, `WebFilter`s or functional `RouterFunction` endpoints do not reach it.
 - The `null` fields are kept by a Jackson module (`PoliPageErrorPayloadModule`) that Spring Boot adds to the `ObjectMapper` it builds. If you declare your own `ObjectMapper` bean, build it from Boot's `Jackson2ObjectMapperBuilder` or register the module on it.
 
@@ -194,7 +194,7 @@ poli-page:
     enabled: false
 ```
 
-It has the lowest precedence. Spring answers an exception with the first `@ControllerAdvice`, in order, that has any matching `@ExceptionHandler`, not with the most specific one across advices. So any advice of yours that handles `PoliPageException` or a supertype (`Exception`, `RuntimeException`), ordered or not, normally answers SDK errors instead of the default handler. If you have such a catch-all and want to keep the SDK payload, handle `PoliPageException` in an advice ordered before it and delegate to the starter's handler:
+It has the lowest precedence. Spring answers an exception with the first `@ControllerAdvice`, in order, that has any matching `@ExceptionHandler`, not with the most specific one across advices. So any advice of yours that handles `PoliPageException` or a supertype (`Exception`, `RuntimeException`), ordered or not, normally answers SDK errors instead of the default handler. If you have such a catch-all and want to keep the SDK answer, handle `PoliPageException` in an advice ordered before it and delegate to the starter's handler. The injected `PoliPageExceptionHandler` is the stack's handler, so this works in MVC and WebFlux alike; in MVC it also removes PDF headers already on the response and never appends JSON to a response already sent:
 
 ```java
 @RestControllerAdvice
@@ -208,12 +208,14 @@ class PoliPageErrors {
 
     @ExceptionHandler(PoliPageException.class)
     ResponseEntity<ErrorPayload> handle(PoliPageException e) {
-        return poliPage.handlePoliPageException(e); // or build your answer from e.toPayload()
+        return poliPage.handlePoliPageException(e);
     }
 }
 ```
 
-Declaring your own `PoliPageExceptionHandler` bean (for example a subclass of the stack's handler) replaces the default one.
+Building your own answer from `e.toPayload()` instead skips that MVC clean-up.
+
+Declaring your own `PoliPageExceptionHandler` bean replaces the default one. `PoliPageExceptionHandler` is abstract and not an advice itself, so the replacement must be a `@ControllerAdvice`, for example a subclass of `PoliPageWebMvcExceptionHandler` or `PoliPageWebFluxExceptionHandler`; a bean of this type that is not an advice leaves SDK errors unhandled.
 
 ### Handling errors yourself
 

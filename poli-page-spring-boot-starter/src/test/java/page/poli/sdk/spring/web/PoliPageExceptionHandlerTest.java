@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static page.poli.sdk.spring.TestKeys.SANDBOX_KEY;
 
+import jakarta.servlet.http.HttpServletResponse;
 import org.json.JSONException;
 import org.junit.jupiter.api.Test;
 import org.skyscreamer.jsonassert.JSONAssert;
@@ -16,6 +17,7 @@ import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.WebApplicationContext;
+import page.poli.sdk.exception.ErrorPayload;
 import page.poli.sdk.exception.PoliPageException;
 import page.poli.sdk.exception.PoliPageNetworkException;
 import page.poli.sdk.spring.PoliPageAutoConfiguration;
@@ -70,12 +73,16 @@ class PoliPageExceptionHandlerTest {
   @Test
   void backsOffForAnApplicationHandler() {
     runner
-        .withBean("custom", PoliPageExceptionHandler.class, PoliPageExceptionHandler::new)
+        .withBean("custom", CustomHandler.class, CustomHandler::new)
         .run(
-            context ->
-                assertThat(context)
-                    .hasSingleBean(PoliPageExceptionHandler.class)
-                    .hasBean("custom"));
+            context -> {
+              assertThat(context).hasSingleBean(PoliPageExceptionHandler.class).hasBean("custom");
+              MockMvc mvc = MockMvcBuilders.webAppContextSetup(context).build();
+              MockHttpServletResponse response =
+                  mvc.perform(get("/throw/api")).andReturn().getResponse();
+              assertThat(response.getStatus()).isEqualTo(404);
+              assertThat(response.getHeader("X-Custom")).isEqualTo("yes");
+            });
   }
 
   @Test
@@ -166,6 +173,16 @@ class PoliPageExceptionHandlerTest {
       JSONAssert.assertEquals(expected, actual, true);
     } catch (JSONException e) {
       throw new AssertionError(e);
+    }
+  }
+
+  /** An application's replacement: a subclass of the MVC handler, so still an advice. */
+  static class CustomHandler extends PoliPageWebMvcExceptionHandler {
+    @Override
+    public ResponseEntity<ErrorPayload> handlePoliPageException(
+        PoliPageException ex, HttpServletResponse response) {
+      response.setHeader("X-Custom", "yes");
+      return super.handlePoliPageException(ex, response);
     }
   }
 
