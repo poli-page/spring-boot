@@ -1,10 +1,10 @@
 # Testing
 
-> Stub the `PoliPageClient` bean in your tests, assert against the starter's helpers without hitting the network, and run one gated integration test against the develop API for end-to-end confidence.
+> Stub the `PoliPageClient` bean in your tests, assert against the starter's helpers without hitting the network, and run one gated integration test against the live API with a `pp_sandbox_` key for end-to-end confidence.
 
 ## Why
 
-A unit test that hits `api.poli.page` is brittle, slow, and consumes your quota. A unit test that ignores the SDK entirely misses the wiring layer the starter is responsible for. The right test pyramid for an app using this starter is: most tests stub `PoliPageClient` at the bean level (sub-second, no network), one or two integration tests use a WireMock-backed local server (medium, no quota), and one smoke test hits the real develop API (gated on a key).
+A unit test that hits `api.poli.page` is brittle, slow, and consumes your quota. A unit test that ignores the SDK entirely misses the wiring layer the starter is responsible for. The right test pyramid for an app using this starter is: most tests stub `PoliPageClient` at the bean level (sub-second, no network), one or two integration tests use a WireMock-backed local server (medium, no quota), and one smoke test hits the live API with a `pp_sandbox_` key (gated on that key).
 
 The starter itself follows the same pyramid — see [spec §14](spec/spring-boot-starter-specification.md#14-testing-strategy). This page covers the techniques an *application* using the starter should adopt.
 
@@ -154,7 +154,7 @@ class FullRenderFlowTest {
 
 Useful when you want to verify the full chain end-to-end (controller → SDK → HTTP → response) and you have specific failure modes to assert (e.g. how your controller reacts to a 429 from the Poli Page side). For most tests, the simpler `@MockitoBean PoliPageClient` approach is enough.
 
-### Integration test against the develop API (gated)
+### Integration test against the live API (gated)
 
 The starter's own `RenderAgainstDevelopApiIT` is the template. Adopt it in your app for the smoke level:
 

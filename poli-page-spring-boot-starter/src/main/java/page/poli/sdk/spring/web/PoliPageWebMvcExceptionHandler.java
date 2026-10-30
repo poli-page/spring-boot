@@ -99,9 +99,8 @@ public class PoliPageWebMvcExceptionHandler extends PoliPageExceptionHandler {
 
   // HttpServletResponse cannot remove a header (setHeader(name, null) leaves it on Tomcat), so keep
   // the others, reset, and put them back; WebFlux does the same with clearContentHeaders(). The
-  // first
-  // value goes back with setHeader, which replaces what a container re-adds on reset (Jetty: Date,
-  // the session cookie), the others with addHeader.
+  // first value goes back with setHeader, which replaces what a container re-adds on reset (Jetty:
+  // Date, the session cookie), the others with addHeader.
   private static void clearContentHeaders(HttpServletResponse response) {
     Map<String, List<String>> kept = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
     for (String name : response.getHeaderNames()) {

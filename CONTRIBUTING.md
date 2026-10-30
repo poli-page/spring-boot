@@ -40,7 +40,7 @@ Without `POLI_CONTRACT` they are skipped locally and fail under CI. A case that 
 
 ### Integration tests
 
-Integration tests run only when `POLI_PAGE_API_KEY` is a sandbox key (`pp_sandbox_…`). They are skipped when it is unset, so PR contributors without a key still get a green local run, and when it belongs to any other environment, so they never render into a counted one. Set `POLI_PAGE_TEST_BASE_URL` to target an API deployment other than the SDK default.
+Integration tests run only when `POLI_PAGE_API_KEY` is a sandbox key (`pp_sandbox_…`). They are skipped when it is unset, so PR contributors without a key still get a green local run, and when it belongs to any other environment, so they never render into a counted one.
 
 ## Lint, format, build
 

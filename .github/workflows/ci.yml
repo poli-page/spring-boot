@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -65,25 +66,38 @@ jobs:
   integration:
     runs-on: ubuntu-latest
     needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
     steps:
+      - name: Check for the sandbox API key
+        id: key
+        env:
+          POLI_PAGE_API_KEY: ${{ secrets.POLI_PAGE_API_KEY }}
+        run: |
+          case "$POLI_PAGE_API_KEY" in
+            pp_sandbox_*) echo "present=true" >> "$GITHUB_OUTPUT" ;;
+            *)
+              echo "::notice::POLI_PAGE_API_KEY is not set or is not a pp_sandbox_ key: skipping the live API test."
+              echo "present=false" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
       - uses: actions/checkout@v4
+        if: steps.key.outputs.present == 'true'
 
       - uses: actions/setup-java@v4
+        if: steps.key.outputs.present == 'true'
         with:
           distribution: temurin
           java-version: '21'
 
       - uses: gradle/actions/setup-gradle@v4
+        if: steps.key.outputs.present == 'true'
 
-      - name: Integration test against develop API
+      - name: Live API test (prod, sandbox key)
+        if: steps.key.outputs.present == 'true'
         env:
-          POLI_PAGE_API_KEY: ${{ secrets.POLI_PAGE_DEVELOP_API_KEY }}
+          POLI_PAGE_API_KEY: ${{ secrets.POLI_PAGE_API_KEY }}
         run: |
-          if [ -z "$POLI_PAGE_API_KEY" ]; then
-            echo "POLI_PAGE_API_KEY not set — skipping integration test"
-            exit 0
-          fi
           # The *IT classes live in the starter's test source set and run only when the key is set.
           # --rerun: the key is not a task input, so a cached keyless result would skip them.
           ./gradlew --no-daemon :poli-page-spring-boot-starter:test --tests '*IT' --rerun

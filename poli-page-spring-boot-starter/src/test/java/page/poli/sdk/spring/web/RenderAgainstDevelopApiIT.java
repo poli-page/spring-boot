@@ -30,17 +30,12 @@ import page.poli.sdk.input.RenderInput;
  * TestRestTemplate}; asserts the response is a real PDF.
  *
  * <p>To run locally: {@code POLI_PAGE_API_KEY=pp_sandbox_… ./gradlew
- * :poli-page-spring-boot-starter:test}. Set {@code POLI_PAGE_TEST_BASE_URL} to target an API
- * deployment other than the SDK default.
+ * :poli-page-spring-boot-starter:test}.
  */
 @SpringBootTest(
     classes = RenderAgainstDevelopApiIT.IntegrationApp.class,
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-    properties = {
-      "poli-page.base-url=${POLI_PAGE_TEST_BASE_URL:}",
-      "spring.main.banner-mode=off",
-      "logging.level.root=WARN"
-    })
+    properties = {"spring.main.banner-mode=off", "logging.level.root=WARN"})
 @EnabledIfEnvironmentVariable(named = "POLI_PAGE_API_KEY", matches = "pp_sandbox_.+")
 class RenderAgainstDevelopApiIT {
 
