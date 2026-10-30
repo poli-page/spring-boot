@@ -29,6 +29,10 @@ import page.poli.sdk.input.RenderInput;
  * minimal Spring Boot app with the MVC starter and a single controller; hits it via {@link
  * TestRestTemplate}; asserts the response is a real PDF.
  *
+ * <p>The test targets the SDK default API, or the one in {@code POLI_PAGE_BASE_URL} when that is
+ * set: Spring Boot binds both environment variables to {@code poli-page.api-key} and {@code
+ * poli-page.base-url}.
+ *
  * <p>To run locally: {@code POLI_PAGE_API_KEY=pp_sandbox_… ./gradlew
  * :poli-page-spring-boot-starter:test}.
  */
