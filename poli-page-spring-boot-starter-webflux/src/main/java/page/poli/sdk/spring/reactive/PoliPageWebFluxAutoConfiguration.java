@@ -3,16 +3,22 @@ package page.poli.sdk.spring.reactive;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.core.io.buffer.DataBufferFactory;
 import org.springframework.core.io.buffer.DefaultDataBufferFactory;
 import org.springframework.web.reactive.config.WebFluxConfigurer;
 import page.poli.sdk.PoliPageClient;
 import page.poli.sdk.spring.PoliPageAutoConfiguration;
+import page.poli.sdk.spring.PoliPageErrorHandlerConfiguration;
+import page.poli.sdk.spring.PoliPageExceptionHandler;
 
 /**
- * WebFlux-flavoured auto-configuration that registers {@link PoliPageReactiveResponses}.
+ * WebFlux-flavoured auto-configuration that registers {@link PoliPageReactiveResponses} and, unless
+ * {@code poli-page.error-handler.enabled=false}, the {@link PoliPageWebFluxExceptionHandler}.
  *
  * <p>Activates only in a reactive stack ({@link ConditionalOnWebApplication.Type#REACTIVE}).
  * Requires a {@link DataBufferFactory} bean — Spring WebFlux provides one out of the box; falls
@@ -22,6 +28,7 @@ import page.poli.sdk.spring.PoliPageAutoConfiguration;
 @AutoConfiguration(after = PoliPageAutoConfiguration.class)
 @ConditionalOnClass({PoliPageClient.class, WebFluxConfigurer.class})
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.REACTIVE)
+@Import(PoliPageErrorHandlerConfiguration.class)
 public class PoliPageWebFluxAutoConfiguration {
 
   @Bean
@@ -34,5 +41,20 @@ public class PoliPageWebFluxAutoConfiguration {
   @ConditionalOnMissingBean
   public PoliPageReactiveResponses poliPageReactiveResponses(DataBufferFactory bufferFactory) {
     return new PoliPageReactiveResponses(bufferFactory);
+  }
+
+  /** The default error handler, unless turned off or replaced by the application's own. */
+  @Configuration(proxyBeanMethods = false)
+  @ConditionalOnProperty(
+      prefix = "poli-page.error-handler",
+      name = "enabled",
+      matchIfMissing = true)
+  static class ErrorHandlerConfiguration {
+
+    @Bean
+    @ConditionalOnMissingBean(PoliPageExceptionHandler.class)
+    public PoliPageWebFluxExceptionHandler poliPageExceptionHandler() {
+      return new PoliPageWebFluxExceptionHandler();
+    }
   }
 }

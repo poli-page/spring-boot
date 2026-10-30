@@ -12,11 +12,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import page.poli.sdk.PoliPageClient;
-import page.poli.sdk.input.ProjectModeInput;
-import page.poli.sdk.model.PreviewResult;
+import page.poli.sdk.input.RenderInput;
 import page.poli.sdk.spring.web.PoliPageResponses;
 
-/** Demo steps 1, 2, 3, 4 — render PDF (bytes), streamed, preview, and render-to-file. */
+/** Demo steps 1, 2, 3 — render PDF (bytes), streamed, and render-to-file. */
 @RestController
 @RequestMapping("/render")
 public class RenderController {
@@ -43,21 +42,14 @@ public class RenderController {
     return responses.stream(s, "welcome.pdf", true);
   }
 
-  @GetMapping("/preview")
-  public ResponseEntity<String> preview() {
-    PreviewResult preview = client.render().preview(welcomeInput());
-    return responses.preview(preview);
-  }
-
   /** Demo step 3 — {@code PoliPageClient.renderToFile} streams the PDF straight to disk. */
   @PostMapping("/file")
   public RenderFileResult file() throws IOException {
     Files.createDirectories(OUTPUT_PATH.getParent());
     client.renderToFile(
-        ProjectModeInput.builder()
+        RenderInput.builder()
             .project("getting-started")
             .template("welcome")
-            .version("1.0.0")
             .data(Map.of("name", "renderToFile demo"))
             .build(),
         OUTPUT_PATH);
@@ -67,11 +59,10 @@ public class RenderController {
   /** Response payload for {@link #file()}. Serialized by Jackson as camelCase JSON. */
   public record RenderFileResult(String path, long sizeBytes) {}
 
-  private static ProjectModeInput welcomeInput() {
-    return ProjectModeInput.builder()
+  private static RenderInput welcomeInput() {
+    return RenderInput.builder()
         .project("getting-started")
         .template("welcome")
-        .version("1.0.0")
         .data(Map.of("name", "Spring Boot Starter Demo"))
         .build();
   }

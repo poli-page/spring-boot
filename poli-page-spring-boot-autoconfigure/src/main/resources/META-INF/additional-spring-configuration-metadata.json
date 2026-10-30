@@ -3,7 +3,7 @@
     {
       "name": "poli-page.api-key",
       "type": "java.lang.String",
-      "description": "Your Poli Page API key. Must start with pp_test_ or pp_live_. Find one at https://poli.page/dashboard/keys."
+      "description": "Your Poli Page API key, for example pp_sandbox_... or pp_live_.... Required and not blank. A key that does not match pp_{environment}_{32 lowercase hex characters} logs one warning at startup that shows no part of the key; the API decides whether it is valid. Find one at https://poli.page/dashboard/keys."
     },
     {
       "name": "poli-page.base-url",
@@ -41,6 +41,12 @@
       "name": "poli-page.events.enabled",
       "type": "java.lang.Boolean",
       "description": "Whether to bridge the SDK's onRetry/onError hooks to Spring ApplicationEvent. Defaults to true.",
+      "defaultValue": true
+    },
+    {
+      "name": "poli-page.error-handler.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether to register the PoliPageExceptionHandler, which answers an SDK error with its toPayload() body ({code, message, status, requestId}) and its status, or 500 when it has none. Defaults to true.",
       "defaultValue": true
     }
   ]

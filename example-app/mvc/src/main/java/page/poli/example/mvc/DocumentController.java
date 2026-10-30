@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import page.poli.sdk.PoliPageClient;
-import page.poli.sdk.input.ProjectModeInput;
+import page.poli.sdk.input.RenderInput;
 import page.poli.sdk.model.DocumentDescriptor;
 import page.poli.sdk.model.DocumentPreviewResult;
 import page.poli.sdk.model.Thumbnail;
@@ -18,7 +18,7 @@ import page.poli.sdk.model.ThumbnailFormat;
 import page.poli.sdk.model.ThumbnailOptions;
 import page.poli.sdk.spring.web.PoliPageResponses;
 
-/** Demo steps 5, 6, 7, 8, 9 — store, get, thumbnails, preview, delete. */
+/** Demo steps 4, 5, 6, 7, 8 — store, get, thumbnails, preview, delete. */
 @RestController
 @RequestMapping("/documents")
 public class DocumentController {
@@ -36,10 +36,9 @@ public class DocumentController {
     return client
         .render()
         .document(
-            ProjectModeInput.builder()
+            RenderInput.builder()
                 .project("getting-started")
                 .template("welcome")
-                .version("1.0.0")
                 .data(Map.of("name", "Document lifecycle demo"))
                 .build());
   }

@@ -13,13 +13,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import page.poli.sdk.PoliPageClient;
-import page.poli.sdk.input.ProjectModeInput;
-import page.poli.sdk.model.PreviewResult;
+import page.poli.sdk.input.RenderInput;
 import page.poli.sdk.spring.reactive.PoliPageReactiveResponses;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-/** Demo steps 1, 2, 3, 4 — reactive variants of the MVC sibling. */
+/** Demo steps 1, 2, 3 — reactive variants of the MVC sibling. */
 @RestController
 @RequestMapping("/render")
 public class RenderController {
@@ -46,22 +45,15 @@ public class RenderController {
     return responses.stream(f, "welcome.pdf", true);
   }
 
-  @GetMapping("/preview")
-  public Mono<ResponseEntity<String>> preview() {
-    CompletableFuture<PreviewResult> f = client.renderAsync().preview(welcomeInput());
-    return responses.previewFromRender(f);
-  }
-
   /** Demo step 3 — reactive {@code renderToFileAsync} streams the PDF straight to disk. */
   @PostMapping("/file")
   public Mono<ResponseEntity<RenderFileResult>> file() throws IOException {
     Files.createDirectories(OUTPUT_PATH.getParent());
     CompletableFuture<Void> f =
         client.renderToFileAsync(
-            ProjectModeInput.builder()
+            RenderInput.builder()
                 .project("getting-started")
                 .template("welcome")
-                .version("1.0.0")
                 .data(Map.of("name", "renderToFile demo (reactive)"))
                 .build(),
             OUTPUT_PATH);
@@ -76,11 +68,10 @@ public class RenderController {
   /** Response payload for {@link #file()}. Serialized by Jackson as camelCase JSON. */
   public record RenderFileResult(String path, long sizeBytes) {}
 
-  private static ProjectModeInput welcomeInput() {
-    return ProjectModeInput.builder()
+  private static RenderInput welcomeInput() {
+    return RenderInput.builder()
         .project("getting-started")
         .template("welcome")
-        .version("1.0.0")
         .data(Map.of("name", "Spring Boot WebFlux Demo"))
         .build();
   }

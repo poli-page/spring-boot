@@ -6,7 +6,7 @@
 
 The starter is configured exclusively through Spring Boot's `@ConfigurationProperties` mechanism. There's no `init()` method to call, no static `PoliPage.configure(...)` to invoke, no Java-side builder you have to construct. You set `poli-page.api-key` and the autoconfig produces a `PoliPageClient` bean. Anything else you set tunes that bean; anything you leave unset falls through to the SDK's own defaults — meaning a future SDK release that bumps the default `requestTimeout` from 60 s to 90 s takes effect for your app without a starter upgrade.
 
-The properties record is validated at startup via Jakarta Bean Validation. Bad input — a malformed `api-key`, a zero-duration `requestTimeout`, a 12-retry `maxAttempts` — fails the boot with a clear `BindValidationException`, not at first call.
+The properties record is validated at startup via Jakarta Bean Validation. Bad input — a missing or blank `api-key`, a zero-duration `requestTimeout`, a 12-retry `maxAttempts` — fails the boot with a clear `BindValidationException`, not at first call. The key's format is not validated: the API is the only authority on keys, so a key that does not look like one gets one startup warning and the app starts anyway.
 
 ## How
 
@@ -14,7 +14,7 @@ The properties record is validated at startup via Jakarta Bean Validation. Bad i
 
 ```yaml
 poli-page:
-  api-key: ${POLI_PAGE_API_KEY}                # REQUIRED — must match pp_(test|live)_.+
+  api-key: ${POLI_PAGE_API_KEY}                # REQUIRED, not blank — e.g. pp_sandbox_…
   base-url:                                    # optional URI, e.g. https://api.poli.page
   request-timeout:                             # optional Duration, e.g. 30s, PT1M
   retries:
@@ -26,6 +26,8 @@ poli-page:
     enabled: true                              # default true — toggles MeterBinder
   events:
     enabled: true                              # default true — toggles ApplicationEvent bridge
+  error-handler:
+    enabled: true                              # default true — toggles the default error handler
 ```
 
 Bound to the `PoliPageProperties` record:
@@ -34,16 +36,14 @@ Bound to the `PoliPageProperties` record:
 @ConfigurationProperties("poli-page")
 @Validated
 public record PoliPageProperties(
-    @NotBlank @Pattern(regexp = "^pp_(test|live)_.+$",
-        message = "Poli Page API key must start with pp_test_ or pp_live_. " +
-                  "Get one at https://poli.page/dashboard/keys.")
-    String apiKey,
+    @NotBlank String apiKey,
     @Nullable URI baseUrl,
     @Nullable @DurationRange(minMillis = 1_000L, maxMillis = 600_000L) Duration requestTimeout,
     @NotNull Retries retries,
     @NotNull Health health,
     @NotNull Metrics metrics,
-    @NotNull Events events
+    @NotNull Events events,
+    @NotNull ErrorHandler errorHandler
 ) {
     public record Retries(
         @Nullable @Min(0) @Max(10) Integer maxAttempts,
@@ -52,6 +52,7 @@ public record PoliPageProperties(
     public record Health(boolean enabled) {}
     public record Metrics(boolean enabled) {}
     public record Events(boolean enabled) {}
+    public record ErrorHandler(boolean enabled) {}
 }
 ```
 
@@ -59,7 +60,7 @@ public record PoliPageProperties(
 
 | Property | Type | Required | Default | Notes |
 |---|---|---|---|---|
-| `poli-page.api-key` | `String` | yes | — | Must match `pp_test_` or `pp_live_`. Failed validation surfaces at startup. |
+| `poli-page.api-key` | `String` | yes | — | `pp_{env}_{32 hex}` (`pp_sandbox_…`, `pp_live_…`, `pp_staging_…`): the key selects the environment. A missing or blank key fails startup; any other value starts the app, with one warning when it does not look like a key (see [Key format warning](#key-format-warning)). |
 | `poli-page.base-url` | `URI` | no | SDK default (`https://api.poli.page`) | Must be absolute. Used for staging / self-hosted deployments. |
 | `poli-page.request-timeout` | `Duration` | no | SDK default (60 s) | Per-attempt request timeout. Spring Boot relaxed binding accepts `30s`, `1m`, `PT45S`. |
 | `poli-page.retries.max-attempts` | `Integer` | no | SDK default (2) | Number of retries on top of the initial request. `0` disables retries. |
@@ -67,6 +68,7 @@ public record PoliPageProperties(
 | `poli-page.health.enabled` | `boolean` | no | `true` | Set to `false` to skip registering the `HealthIndicator`. |
 | `poli-page.metrics.enabled` | `boolean` | no | `true` | Set to `false` to skip Micrometer meters. |
 | `poli-page.events.enabled` | `boolean` | no | `true` | Set to `false` to drop the `ApplicationEventPublisher` bridge. |
+| `poli-page.error-handler.enabled` | `boolean` | no | `true` | Set to `false` to drop `PoliPageExceptionHandler`, which answers an SDK error with its `toPayload()` body (see the README's [Errors](../README.md#errors)). |
 
 ### Relaxed binding & env-var mapping
 
@@ -84,7 +86,7 @@ poli-page:
   api-key: ${POLI_PAGE_API_KEY}
 ```
 
-That's all you need. With this file and a `POLI_PAGE_API_KEY=pp_test_...` in the environment, the autoconfig produces a fully-functional `PoliPageClient` bean.
+That's all you need. With this file and a `POLI_PAGE_API_KEY=pp_sandbox_...` in the environment, the autoconfig produces a fully-functional `PoliPageClient` bean.
 
 ### A staging-vs-production split
 
@@ -95,7 +97,7 @@ poli-page:
 
 # application-staging.yml (activated by SPRING_PROFILES_ACTIVE=staging)
 poli-page:
-  base-url: https://api-staging.poli.page
+  api-key: ${POLI_PAGE_STAGING_API_KEY}   # a pp_staging_… key: the key selects the environment
   request-timeout: 30s
 
 # application-prod.yml
@@ -121,16 +123,14 @@ Description:
 Binding to target [Bindable@... type = page.poli.sdk.spring.PoliPageProperties] failed:
 
     Property: poli-page.api-key
-    Value: "sk_live_dashboardtoken"
+    Value: ""
     Origin: System Environment Property "POLI_PAGE_API_KEY"
-    Reason: Poli Page API key must start with pp_test_ or pp_live_. Get one at https://poli.page/dashboard/keys.
+    Reason: must not be blank
 
 Action:
 
 Update your application's configuration
 ```
-
-This is the path that catches the #1 misconfiguration: pasting a dashboard token instead of an API key. The match is regex `^pp_(test|live)_.+$` — fail-loud, not fail-quiet.
 
 Other validations:
 
@@ -139,13 +139,29 @@ Other validations:
 - `retries.max-attempts: -1` → `Min` rejection.
 - `retries.max-attempts: 11` → `Max` rejection.
 
+### Key format warning
+
+The API is the only authority on keys, so the starter never rejects a non-blank key. When the client bean is built, it compares the key with the SDK contract's full-key regex:
+
+```text
+^pp_(?=[a-z][a-z0-9-]{0,19}_)[a-z][a-z0-9]*(?:-[a-z0-9]+)*_[0-9a-f]{32}$
+```
+
+A key that does not match (for example `pp_sandbox_x`, `pp_Sandbox_…`, a 21-character environment name, or a dashboard token such as `sk_live_…`) logs exactly one warning and the app starts anyway:
+
+```
+WARN  page.poli.sdk.spring.PoliPageAutoConfiguration : Poli Page API key does not match the expected format pp_{environment}_{32 lowercase hex characters}; starting anyway, the API decides whether it is valid.
+```
+
+The warning shows no part of the key, not even the `pp_{env}_` prefix: a mis-pasted secret fragment can look like a valid environment name. The first call then fails with the API's answer: `401 INVALID_API_KEY`, or `401 MISSING_API_KEY` for a value without `pp_`.
+
 ## IDE auto-completion
 
 The starter ships `META-INF/spring-configuration-metadata.json` so IntelliJ IDEA, VS Code (with the Spring Tools extension), and Eclipse STS suggest `poli-page.*` keys as you type, with type hints, default values, and descriptions sourced from the record's Javadoc. No extra plugin needed — Spring Boot's tooling reads this file by convention.
 
 ```yaml
 poli-page:
-  api  # IDE shows: api-key (String, REQUIRED) — Your Poli Page API key. Find one at https://poli.page/dashboard/keys.
+  api  # IDE shows: api-key (String, REQUIRED) — Your Poli Page API key, for example pp_sandbox_... or pp_live_.... (…)
 ```
 
 ## Externalising secrets
@@ -167,7 +183,7 @@ A `application-local.yml` not under version control:
 
 ```yaml
 poli-page:
-  api-key: pp_test_...
+  api-key: pp_sandbox_...
 ```
 
 Activate with `SPRING_PROFILES_ACTIVE=local` during development. Add `application-local.yml` to `.gitignore`.
@@ -179,7 +195,7 @@ For production, use the bootstrap configuration mechanism your platform already 
 ## Gotchas
 
 - **`base-url` must be absolute.** A relative URI like `/v1` is silently invalid; the autoconfig throws `IllegalArgumentException` from the SDK builder. Set the full origin: `https://api.poli.page` (no trailing path).
-- **Boolean toggles default to `true`.** `poli-page.health.enabled`, `poli-page.metrics.enabled`, `poli-page.events.enabled` are all opt-out, not opt-in. Omitting them is equivalent to `true` — flip to `false` to disable the corresponding bean.
+- **Boolean toggles default to `true`.** `poli-page.health.enabled`, `poli-page.metrics.enabled`, `poli-page.events.enabled`, `poli-page.error-handler.enabled` are all opt-out, not opt-in. Omitting them is equivalent to `true` — flip to `false` to disable the corresponding bean.
 - **Relaxed binding case is environment-specific.** Linux env vars are case-sensitive (`POLI_PAGE_API_KEY` only); Windows is not. Stick with UPPER_SNAKE_CASE for env vars to keep platforms aligned.
 - **`@DurationRange` is shipped by the starter, not by Spring Boot.** Spring Boot offers no Duration-range constraint. The starter declares `page.poli.sdk.spring.validation.DurationRange` (~40 lines) so the properties record can validate duration bounds at startup. The annotation accepts `minMillis` / `maxMillis` parameters so any Duration unit in `application.yml` (`s`, `m`, `h`) is honoured consistently.
 - **Properties aren't refreshable.** The autoconfig reads `PoliPageProperties` once at startup. Spring Cloud Config's `@RefreshScope` is not wired in v0.1 (deferred to a future release); changing `api-key` at runtime requires an application restart.

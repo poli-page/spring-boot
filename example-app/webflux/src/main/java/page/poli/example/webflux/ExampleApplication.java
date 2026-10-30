@@ -4,10 +4,10 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 /**
- * Runnable example WebFlux app mirroring the MVC sibling — same 10 SDK demo steps, reactive return
+ * Runnable example WebFlux app mirroring the MVC sibling — same 9 SDK demo steps, reactive return
  * types ({@code Mono} / {@code Flux}).
  *
- * <p>Run with: {@code POLI_PAGE_API_KEY=pp_test_… ./gradlew :example-app:webflux:bootRun}, then
+ * <p>Run with: {@code POLI_PAGE_API_KEY=pp_sandbox_… ./gradlew :example-app:webflux:bootRun}, then
  * open <a href="http://localhost:8081">http://localhost:8081</a>.
  */
 @SpringBootApplication

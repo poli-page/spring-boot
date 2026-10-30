@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import page.poli.sdk.PoliPageClient;
-import page.poli.sdk.input.ProjectModeInput;
+import page.poli.sdk.input.RenderInput;
 import page.poli.sdk.model.DocumentDescriptor;
 import page.poli.sdk.model.Thumbnail;
 import page.poli.sdk.model.ThumbnailFormat;
@@ -19,7 +19,7 @@ import page.poli.sdk.model.ThumbnailOptions;
 import page.poli.sdk.spring.reactive.PoliPageReactiveResponses;
 import reactor.core.publisher.Mono;
 
-/** Demo steps 5–9 — reactive document lifecycle. */
+/** Demo steps 4–8 — reactive document lifecycle. */
 @RestController
 @RequestMapping("/documents")
 public class DocumentController {
@@ -38,10 +38,9 @@ public class DocumentController {
         client
             .renderAsync()
             .document(
-                ProjectModeInput.builder()
+                RenderInput.builder()
                     .project("getting-started")
                     .template("welcome")
-                    .version("1.0.0")
                     .data(Map.of("name", "Document lifecycle demo (reactive)"))
                     .build()));
   }

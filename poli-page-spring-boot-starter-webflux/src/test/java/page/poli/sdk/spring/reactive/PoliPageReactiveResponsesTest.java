@@ -16,7 +16,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import page.poli.sdk.model.DocumentDescriptor;
 import page.poli.sdk.model.DocumentPreviewResult;
-import page.poli.sdk.model.PreviewResult;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
@@ -106,25 +105,17 @@ class PoliPageReactiveResponsesTest {
   }
 
   @Test
-  void previewFromRenderReturnsHtmlResponse() {
-    PreviewResult preview = new PreviewResult("<h1>rendered</h1>", 1, "sandbox");
-
-    StepVerifier.create(responses.previewFromRender(CompletableFuture.completedFuture(preview)))
-        .assertNext(
-            response -> {
-              assertThat(response.getHeaders().getContentType())
-                  .isEqualTo(new MediaType("text", "html", StandardCharsets.UTF_8));
-              assertThat(response.getBody()).isEqualTo("<h1>rendered</h1>");
-            })
-        .verifyComplete();
-  }
-
-  @Test
   void previewFromDocumentReturnsHtmlResponse() {
     DocumentPreviewResult preview = new DocumentPreviewResult("<p>stored</p>", 3);
 
     StepVerifier.create(responses.previewFromDocument(CompletableFuture.completedFuture(preview)))
-        .assertNext(response -> assertThat(response.getBody()).isEqualTo("<p>stored</p>"))
+        .assertNext(
+            response -> {
+              assertThat(response.getHeaders().getContentType())
+                  .isEqualTo(new MediaType("text", "html", StandardCharsets.UTF_8));
+              assertThat(response.getHeaders().getCacheControl()).isEqualTo("private, no-store");
+              assertThat(response.getBody()).isEqualTo("<p>stored</p>");
+            })
         .verifyComplete();
   }
 
@@ -134,7 +125,6 @@ class PoliPageReactiveResponsesTest {
         new DocumentDescriptor(
             "doc_abc",
             "org_x",
-            null,
             null,
             null,
             null,

@@ -1,18 +1,20 @@
 package page.poli.example.webflux;
 
-import java.util.HashMap;
 import java.util.Map;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import page.poli.sdk.PoliPageClient;
-import page.poli.sdk.exception.ErrorPayload;
-import page.poli.sdk.exception.PoliPageException;
-import page.poli.sdk.input.ProjectModeInput;
+import page.poli.sdk.input.RenderInput;
 import reactor.core.publisher.Mono;
 
-/** Demo step 10 — deliberate INVALID_VERSION_FORMAT trigger, reactive variant. */
+/**
+ * Demo step 9 — renders the {@code getting-started} project's {@code does-not-exist} template so
+ * the API answers 404 {@code TEMPLATE_NOT_FOUND}, reactive variant. There is no error mapping here:
+ * the starter's default {@link page.poli.sdk.spring.PoliPageExceptionHandler} answers the error's
+ * {@code toPayload()} ({@code code}, {@code message}, {@code status}, {@code requestId}) with
+ * status 404.
+ */
 @RestController
 @RequestMapping("/errors")
 public class ErrorController {
@@ -23,33 +25,17 @@ public class ErrorController {
     this.client = client;
   }
 
-  @GetMapping("/bad-version")
-  public Mono<ResponseEntity<Map<String, Object>>> badVersion() {
+  @GetMapping("/not-found")
+  public Mono<Map<String, Object>> notFound() {
     return Mono.fromFuture(
             client
                 .renderAsync()
                 .pdf(
-                    ProjectModeInput.builder()
+                    RenderInput.builder()
                         .project("getting-started")
-                        .template("welcome")
-                        .version("not-a-semver")
-                        .data(Map.of("name", "x"))
+                        .template("does-not-exist")
+                        .data(Map.of())
                         .build()))
-        .map(pdf -> ResponseEntity.ok(Map.<String, Object>of("unexpected", "succeeded")))
-        .onErrorResume(
-            ex -> {
-              Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
-              if (cause instanceof PoliPageException ppe) {
-                ErrorPayload payload = ppe.toPayload();
-                int status = payload.status() != null ? payload.status() : 500;
-                Map<String, Object> body = new HashMap<>();
-                body.put("code", payload.code());
-                body.put("message", payload.message());
-                body.put("status", status);
-                body.put("requestId", payload.requestId());
-                return Mono.just(ResponseEntity.status(status).body(body));
-              }
-              return Mono.error(ex);
-            });
+        .map(pdf -> Map.of("unexpected", "expected a 404 but the call succeeded"));
   }
 }

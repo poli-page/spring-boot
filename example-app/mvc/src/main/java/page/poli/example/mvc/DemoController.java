@@ -424,15 +424,13 @@ public class DemoController {
           <div class="head">
             <h2>Render <span class="label">01 · instant</span></h2>
             <p class="desc">
-              Three SDK entry points for rendering the <code>getting-started/welcome</code> template:
-              binary PDF (<code>render().pdf</code>), streamed PDF (<code>render().pdfStream</code>),
-              and HTML preview (<code>render().preview</code>).
+              Two SDK entry points for rendering the <code>getting-started/welcome</code> template:
+              binary PDF (<code>render().pdf</code>) and streamed PDF (<code>render().pdfStream</code>).
             </p>
           </div>
           <div class="actions">
             <button class="run" data-action="pdf"     data-target="r1">Render PDF</button>
             <button class="run" data-action="stream"  data-target="r1">Via stream</button>
-            <button class="run" data-action="preview" data-target="r1">HTML preview</button>
           </div>
           <div class="result" id="r1">
             <div class="pane-label"><span>output</span><span class="meta">idle</span></div>
@@ -486,13 +484,13 @@ public class DemoController {
           <div class="head">
             <h2>Error handling <span class="label">04 · typed exceptions</span></h2>
             <p class="desc">
-              Sends a deliberately malformed version string to trigger
-              <code>INVALID_VERSION_FORMAT</code>. The starter's typed exceptions propagate the
-              API code, message, and request-id straight through.
+              Renders the template <code>does-not-exist</code> to trigger a 404
+              <code>TEMPLATE_NOT_FOUND</code>. The starter's typed exceptions propagate the
+              API code, status, message, and request-id straight through.
             </p>
           </div>
           <div class="actions">
-            <button class="run" data-action="bad-version" data-target="r4">Trigger 400</button>
+            <button class="run" data-action="not-found" data-target="r4">Trigger 404</button>
           </div>
           <div class="result" id="r4">
             <div class="pane-label"><span>output</span><span class="meta">idle</span></div>
@@ -594,12 +592,6 @@ public class DemoController {
             const blob = await r.blob();
             renderIframe(target, URL.createObjectURL(blob), 'pdf (stream)', `${blob.size.toLocaleString()} bytes`);
           },
-          preview: async target => {
-            const r = await fetch('/render/preview');
-            const html = await r.text();
-            if (!r.ok) return renderError(target, `HTTP ${r.status}`);
-            renderInlineHtml(target, html, 'html preview', `${html.length.toLocaleString()} chars`);
-          },
           'doc-create': async target => {
             const r = await fetch('/documents', { method: 'POST' });
             const body = await r.text();
@@ -639,8 +631,8 @@ public class DemoController {
             const body = await r.text();
             renderJson(target, r.status, body, 'wrote to disk');
           },
-          'bad-version': async target => {
-            const r = await fetch('/errors/bad-version');
+          'not-found': async target => {
+            const r = await fetch('/errors/not-found');
             const body = await r.text();
             renderJson(target, r.status, body, 'error payload');
           },

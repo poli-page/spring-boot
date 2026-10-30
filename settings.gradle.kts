@@ -19,8 +19,3 @@ include(
     "example-app:webflux",
 )
 
-// SDK dev-override note (Why: sdk-java is a Maven project, so Gradle's includeBuild
-// is not usable as a composite. To test against unreleased SDK changes, run
-// `./mvnw install -DskipTests` inside ../sdk-java/, which publishes the artifact to
-// ~/.m2/repository; the root build.gradle.kts lists `mavenLocal()` first so Gradle
-// resolves it before Maven Central.

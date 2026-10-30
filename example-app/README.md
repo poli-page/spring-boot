@@ -12,33 +12,30 @@ Both expose the same surface — the only difference is whether controllers retu
 ## Prerequisites
 
 - Java 17+
-- A Poli Page test API key (`pp_test_…`) — get one at [poli.page/dashboard/keys](https://poli.page/dashboard/keys)
-- The local SDK installed via Maven (until `page.poli:sdk` publishes to Central):
-
-```bash
-cd ../sdk-java && ./mvnw install -DskipTests
-```
+- A Poli Page sandbox API key (`pp_sandbox_…`) — get one at [poli.page/dashboard/keys](https://poli.page/dashboard/keys)
 
 ## Running
 
 ```bash
-export POLI_PAGE_API_KEY=pp_test_…
+export POLI_PAGE_API_KEY=pp_sandbox_…
+# optional: export POLI_PAGE_BASE_URL=https://…   (defaults to the SDK's https://api.poli.page)
 ./gradlew :example-app:mvc:bootRun         # MVC, http://localhost:8080
 ./gradlew :example-app:webflux:bootRun     # WebFlux, http://localhost:8081
 ```
+
+Both render the `getting-started` project's `welcome` template, which every organization has in `sandbox`; the key selects the environment and the input carries no version.
 
 Open the URL in a browser. You'll get an interactive dashboard with one button per SDK feature:
 
 1. **Render PDF (bytes)** — `GET /render/pdf`
 2. **Render PDF (streamed)** — `GET /render/stream`
 3. **Render to file** — invoked by `--render-to-file=PATH` at app start (see below)
-4. **HTML preview** — `GET /render/preview`
-5. **Store a document** — `POST /documents` returns the descriptor
-6. **Fetch descriptor** — `GET /documents/{id}/raw` (and `GET /documents/{id}` for a 302 redirect to the presigned PDF)
-7. **Thumbnails** — `GET /documents/{id}/thumbnails` returns base64 page thumbnails
-8. **Stored preview** — `GET /documents/{id}/preview`
-9. **Delete** — `DELETE /documents/{id}` returns 204
-10. **Error surface** — `GET /errors/bad-version` deliberately triggers a 400 and returns the typed exception JSON
+4. **Store a document** — `POST /documents` returns the descriptor
+5. **Fetch descriptor** — `GET /documents/{id}/raw` (and `GET /documents/{id}` for a 302 redirect to the presigned PDF)
+6. **Thumbnails** — `GET /documents/{id}/thumbnails` returns base64 page thumbnails
+7. **Stored preview** — `GET /documents/{id}/preview`
+8. **Delete** — `DELETE /documents/{id}` returns 204
+9. **Error surface** — `GET /errors/not-found` renders `getting-started` with template `does-not-exist` and data `{}`, and answers `404` with the typed exception JSON: `code` (`TEMPLATE_NOT_FOUND`), `status`, `message` and `requestId`
 
 ## Render-to-file demo (step 3)
 
@@ -62,10 +59,15 @@ curl -s http://localhost:8080/documents/$DOC/raw | jq
 curl -s http://localhost:8080/documents/$DOC/thumbnails | jq '.[0] | {page, width, contentType}'
 curl -i http://localhost:8080/documents/$DOC                # 302 to presigned URL
 curl -X DELETE -i http://localhost:8080/documents/$DOC      # 204
+
+# Error surface
+curl -s http://localhost:8080/errors/not-found | jq           # 404 TEMPLATE_NOT_FOUND
 ```
+
+`GET /errors/not-found` has no try/catch: the starter's default error handler answers the SDK error's `toPayload()` (`code`, `message`, `status`, `requestId`) with its status. The same handler answers `503` when the API cannot be reached (`network_error`) and the API's last error after the retries.
 
 ## What's not here (and why)
 
-- **No tests**: this is a demo app, not a tested artifact. Test coverage lives in the starter modules.
+- **Few tests**: this is a demo app, not a tested artifact. Test coverage lives in the starter modules; each app tests its `GET /errors/not-found` answer against a stubbed API and runs the API contract's `impl` cases (`ContractTest`, see [CONTRIBUTING.md](../CONTRIBUTING.md#contract-tests)).
 - **No deployment manifest** (Dockerfile, Kubernetes YAML): the example is meant for local exploration.
 - **No security**: the endpoints are wide open — production apps would gate them behind their normal auth layer.

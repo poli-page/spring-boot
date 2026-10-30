@@ -1,6 +1,9 @@
 package page.poli.sdk.spring;
 
 import io.micrometer.core.instrument.MeterRegistry;
+import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.actuate.health.HealthIndicator;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -30,11 +33,22 @@ import page.poli.sdk.spring.metrics.PoliPageMetrics;
  * <p>Null-valued properties (everything except {@code apiKey}) are passed through to the SDK
  * builder's own defaults — a single source of truth that survives SDK version bumps without a
  * starter release.
+ *
+ * <p>The API is the only authority on keys: a key that does not match {@code pp_{environment}_{32
+ * lowercase hex characters}} gets one startup warning that shows no part of the key, and the client
+ * is built anyway.
  */
 @AutoConfiguration
 @EnableConfigurationProperties(PoliPageProperties.class)
 @ConditionalOnClass(PoliPageClient.class)
 public class PoliPageAutoConfiguration {
+
+  private static final Logger log = LoggerFactory.getLogger(PoliPageAutoConfiguration.class);
+
+  // The SDK contract's full-key regex without its ^…$ anchors: matches() anchors both ends and,
+  // unlike $, also rejects a trailing newline.
+  private static final Pattern KEY_FORMAT =
+      Pattern.compile("pp_(?=[a-z][a-z0-9-]{0,19}_)[a-z][a-z0-9]*(?:-[a-z0-9]+)*_[0-9a-f]{32}");
 
   @Bean
   @ConditionalOnMissingBean
@@ -65,7 +79,21 @@ public class PoliPageAutoConfiguration {
           builder.onRetry(eb::onRetry);
           builder.onError(eb::onError);
         });
-    return builder.build();
+    // After build(): the SDK refuses a missing or blank key before it gets here.
+    PoliPageClient client = builder.build();
+    warnIfMalformed(props.apiKey());
+    return client;
+  }
+
+  private static void warnIfMalformed(String apiKey) {
+    if (KEY_FORMAT.matcher(apiKey).matches()) {
+      return;
+    }
+    // No part of the key, not even pp_{env}_: a mis-pasted secret fragment can pass for one.
+    log.warn(
+        "Poli Page API key does not match the expected format "
+            + "pp_{environment}_{32 lowercase hex characters}; "
+            + "starting anyway, the API decides whether it is valid.");
   }
 
   /**

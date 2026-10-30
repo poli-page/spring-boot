@@ -4,7 +4,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 import java.net.URI;
 import java.time.Duration;
 import org.jspecify.annotations.Nullable;
@@ -22,30 +21,29 @@ import page.poli.sdk.spring.validation.DurationRange;
  * defaults — so a future SDK release that bumps a default takes effect automatically without a
  * starter release.
  *
- * @param apiKey the API key — required, must start with {@code pp_test_} or {@code pp_live_}
+ * @param apiKey the API key — required and not blank. A key has the form {@code
+ *     pp_{environment}_{32 lowercase hex characters}} ({@code pp_sandbox_…}, {@code pp_live_…},
+ *     {@code pp_staging_…}); any other value logs one warning at startup, which shows no part of
+ *     the key, and is passed to the API, which decides whether it is valid
  * @param baseUrl optional base URL of the API; defaults to {@code https://api.poli.page}
  * @param requestTimeout optional per-attempt request timeout; defaults to 60 s
  * @param retries retry-policy nested record
  * @param health Actuator HealthIndicator toggle
  * @param metrics Micrometer MeterBinder toggle
  * @param events ApplicationEvent bridge toggle
+ * @param errorHandler error-handler toggle
  */
 @ConfigurationProperties("poli-page")
 @Validated
 public record PoliPageProperties(
-    @NotBlank
-        @Pattern(
-            regexp = "^pp_(test|live)_.+$",
-            message =
-                "Poli Page API key must start with pp_test_ or pp_live_. "
-                    + "Get one at https://poli.page/dashboard/keys.")
-        String apiKey,
+    @NotBlank String apiKey,
     @Nullable URI baseUrl,
     @Nullable @DurationRange(minMillis = 1_000L, maxMillis = 600_000L) Duration requestTimeout,
     @Valid @DefaultValue Retries retries,
     @Valid @DefaultValue Health health,
     @Valid @DefaultValue Metrics metrics,
-    @Valid @DefaultValue Events events) {
+    @Valid @DefaultValue Events events,
+    @Valid @DefaultValue ErrorHandler errorHandler) {
 
   /**
    * Retry-policy options.
@@ -77,4 +75,12 @@ public record PoliPageProperties(
    * @param enabled set to {@code false} to skip publishing retry/error events
    */
   public record Events(@DefaultValue("true") boolean enabled) {}
+
+  /**
+   * Error-handler toggle. Defaults to {@code true}.
+   *
+   * @param enabled set to {@code false} to skip registering the {@code PoliPageExceptionHandler}
+   *     that answers an SDK error with its {@code toPayload()} body
+   */
+  public record ErrorHandler(@DefaultValue("true") boolean enabled) {}
 }
