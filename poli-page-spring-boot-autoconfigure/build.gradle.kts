@@ -25,6 +25,7 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-validation")
     testImplementation("org.springframework.boot:spring-boot-starter-actuator")
     testImplementation("io.micrometer:micrometer-core")
+    testImplementation("org.springframework:spring-web")
 
     // Shared with the example apps' tests: the test keys and the stubbed API.
     testFixturesApi("org.wiremock:wiremock-standalone:3.9.1")

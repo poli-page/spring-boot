@@ -1,34 +1,43 @@
 package page.poli.sdk.spring;
 
-import org.springframework.core.Ordered;
-import org.springframework.core.annotation.Order;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.RestControllerAdvice;
 import page.poli.sdk.exception.ErrorPayload;
 import page.poli.sdk.exception.PoliPageException;
 
 /**
- * Turns a {@link PoliPageException} thrown by a controller into an HTTP answer, in Spring MVC and
- * in Spring WebFlux.
+ * Turns a {@link PoliPageException} into an HTTP answer: the body is the SDK's {@link
+ * PoliPageException#toPayload()}, written as JSON ({@code {"code", "message", "status",
+ * "requestId"}}, with {@code null} for an unknown {@code status} or {@code requestId}), and the
+ * HTTP status is the payload's {@code status} ({@code 503} for {@code network_error}, {@code 504}
+ * for {@code timeout}), or {@code 500} when the payload has none.
  *
- * <p>The body is the SDK's {@link PoliPageException#toPayload()}, written as JSON: {@code {"code",
- * "message", "status", "requestId"}}, with {@code null} for an unknown {@code status} or {@code
- * requestId}. The HTTP status is the payload's {@code status} ({@code 503} for {@code
- * network_error}, {@code 504} for {@code timeout}), or {@code 500} when the payload has none.
+ * <p>The starters register a stack-specific {@code @RestControllerAdvice} subclass of this class
+ * ({@code PoliPageWebMvcExceptionHandler} in Spring MVC, {@code PoliPageWebFluxExceptionHandler} in
+ * Spring WebFlux) unless {@code poli-page.error-handler.enabled} is {@code false} or the
+ * application declares its own {@code PoliPageExceptionHandler} bean. That advice has the lowest
+ * precedence: Spring answers an exception with the first {@code @ControllerAdvice}, in order, that
+ * has any matching handler, so an application advice that handles {@code PoliPageException} or a
+ * supertype such as {@code Exception}, ordered or not, normally answers instead. An application
+ * with such a catch-all keeps the SDK payload by handling {@code PoliPageException} in an advice
+ * ordered before it and delegating to {@link #handlePoliPageException(PoliPageException)} of this
+ * bean.
  *
- * <p>Registered by the MVC and WebFlux starters unless {@code poli-page.error-handler.enabled} is
- * {@code false} or the application declares its own {@code PoliPageExceptionHandler} bean. It has
- * the lowest precedence, so an application's own {@code @ExceptionHandler} for {@code
- * PoliPageException} in an ordered {@code @ControllerAdvice} wins.
+ * <p>Each answered error is logged on this class's logger: at {@code ERROR} for a 5xx or an error
+ * with no status, at {@code WARN} otherwise. The log line names the code, status, request id and
+ * message, never the API key.
  */
-@RestControllerAdvice
-@Order(Ordered.LOWEST_PRECEDENCE)
 public class PoliPageExceptionHandler {
 
   /** The HTTP status for an error whose payload has no status. */
   static final int FALLBACK_STATUS = 500;
+
+  private static final Logger log = LoggerFactory.getLogger(PoliPageExceptionHandler.class);
+
+  /** Creates the handler. */
+  public PoliPageExceptionHandler() {}
 
   /**
    * Answers the error's payload.
@@ -36,12 +45,28 @@ public class PoliPageExceptionHandler {
    * @param ex the SDK error
    * @return the payload's status (or {@code 500}) with the payload as a JSON body
    */
-  @ExceptionHandler(PoliPageException.class)
   public ResponseEntity<ErrorPayload> handlePoliPageException(PoliPageException ex) {
     ErrorPayload payload = ex.toPayload();
-    Integer status = payload.status();
-    return ResponseEntity.status(status != null ? status : FALLBACK_STATUS)
-        .contentType(MediaType.APPLICATION_JSON)
-        .body(payload);
+    Integer payloadStatus = payload.status();
+    int status = payloadStatus != null ? payloadStatus : FALLBACK_STATUS;
+    if (payloadStatus == null || status >= 500) {
+      log.error(
+          "Poli Page SDK error answered with HTTP {}: code={} status={} requestId={} message={}",
+          status,
+          payload.code(),
+          payloadStatus,
+          payload.requestId(),
+          payload.message(),
+          ex);
+    } else {
+      log.warn(
+          "Poli Page SDK error answered with HTTP {}: code={} status={} requestId={} message={}",
+          status,
+          payload.code(),
+          payloadStatus,
+          payload.requestId(),
+          payload.message());
+    }
+    return ResponseEntity.status(status).contentType(MediaType.APPLICATION_JSON).body(payload);
   }
 }
