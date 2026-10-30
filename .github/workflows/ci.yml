@@ -30,6 +30,25 @@ jobs:
       - name: Pin Spring Boot version
         run: sed -i "s/^springBootVersion=.*/springBootVersion=${{ matrix.spring-boot }}/" gradle.properties
 
+      # The example apps run the contract tests: show that they follow the matrix's Spring Boot.
+      - name: Spring Boot resolved by the example apps
+        run: |
+          boot='${{ matrix.spring-boot }}'
+          boot="${boot%+}"
+          for app in mvc webflux; do
+            web=spring-web$app
+            [ "$app" = mvc ] || web=spring-webflux
+            for dep in org.springframework.boot:spring-boot "org.springframework:$web"; do
+              out=$(./gradlew -q ":example-app:$app:dependencyInsight" --dependency "$dep" --configuration testRuntimeClasspath)
+              line=${out%%$'\n'*}
+              echo "example-app:$app resolves $line"
+              if [ "$dep" = org.springframework.boot:spring-boot ] && [[ "$line" != *":spring-boot:$boot"* ]]; then
+                echo "::error::example-app:$app does not resolve Spring Boot $boot*"
+                exit 1
+              fi
+            done
+          done
+
       - name: API contract
         id: contract
         uses: poli-page/api-contract@0eba96c1ecf9a28b7e259f444f3ca5b7c059d5fd # v1.3.0

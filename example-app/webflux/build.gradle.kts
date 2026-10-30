@@ -13,6 +13,14 @@ dependencies {
     testImplementation(testFixtures(project(":poli-page-spring-boot-autoconfigure")))
 }
 
+// The Boot plugin imports the BOM of its own version (above); import the build's springBootVersion
+// again after it, so the app follows CI's Spring Boot matrix like the starters do.
+extensions.configure<io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension> {
+    imports {
+        mavenBom("org.springframework.boot:spring-boot-dependencies:${rootProject.properties["springBootVersion"]}")
+    }
+}
+
 // The contract tests (ContractTest) read the file at POLI_CONTRACT, and fail without it when CI
 // is set. Both are inputs, so a cached result never stands in for a run against another contract.
 tasks.named<Test>("test") {
