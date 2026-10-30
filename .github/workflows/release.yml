@@ -1,0 +1,253 @@
+name: Release
+
+# Tag-driven publish to Maven Central through the Sonatype Central Portal.
+#
+#   bump gradle.properties `version` + CHANGELOG on main → CI green → push tag vX.Y.Z
+#     → verify job (asserts tag == gradle.properties version and a CHANGELOG
+#       section for it, full build with the API contract, unsigned Central
+#       bundle checked file by file)
+#     → publish job PAUSES on the `maven-central-release` environment for
+#       manual approval
+#     → on approval: build the signed bundle, upload it to the Central Portal
+#       with automatic publishing, wait until PUBLISHED, then create the
+#       GitHub Release
+#
+# Published: page.poli:poli-page-spring-boot-starter, -starter-webflux and
+# -autoconfigure. The example apps and the test fixtures are not.
+#
+# Central releases are immutable: a version can never be deleted or replaced.
+#
+# The Central token and the GPG key are long-lived, so they are environment
+# secrets on `maven-central-release`: only the approved publish job can read
+# CENTRAL_USERNAME, CENTRAL_PASSWORD, GPG_PRIVATE_KEY and GPG_PASSPHRASE.
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        with:
+          cache-read-only: true
+
+      # The tag is only the trigger: the version of record is gradle.properties.
+      # Refuse to publish if they disagree, so a mistyped tag can never ship the
+      # wrong version to the immutable repository.
+      - name: Resolve version + assert tag matches gradle.properties
+        id: resolve
+        run: |
+          set -euo pipefail
+          VERSION="$(sed -n 's/^version=//p' gradle.properties)"
+          TAG="${GITHUB_REF_NAME}"
+          if [[ -z "$VERSION" ]]; then
+            echo "::error::No version= line in gradle.properties." >&2
+            exit 1
+          fi
+          if [[ "$TAG" != "v${VERSION}" ]]; then
+            echo "::error::Tag '$TAG' does not match gradle.properties version ('v${VERSION}'). Bump gradle.properties and re-tag." >&2
+            exit 1
+          fi
+          if [[ "$VERSION" == *-SNAPSHOT ]]; then
+            echo "::error::gradle.properties version '$VERSION' is a SNAPSHOT; Central only takes releases." >&2
+            exit 1
+          fi
+          if ! grep -qF "## [${VERSION}]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [${VERSION}]' section." >&2
+            exit 1
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Releasing ${TAG} (gradle.properties = ${VERSION})"
+
+      - run: ./gradlew --no-daemon spotlessCheck
+
+      # The tagged commit's tests run the API contract too.
+      - name: API contract
+        id: contract
+        uses: poli-page/api-contract@0eba96c1ecf9a28b7e259f444f3ca5b7c059d5fd # v1.3.0
+
+      # Every module's tests, the example apps' ContractTest included. No build
+      # cache: the tagged commit's tests run here, not a cached result.
+      - name: Test + build
+        env:
+          POLI_CONTRACT: ${{ steps.contract.outputs.path }}
+        run: ./gradlew --no-daemon --no-build-cache build
+
+      # Proves the jars, sources and javadoc jars, POMs and Gradle module files
+      # build, and that the bundle holds the three modules and nothing else,
+      # without needing the signing key.
+      - name: Central bundle (unsigned)
+        env:
+          VER: ${{ steps.resolve.outputs.version }}
+        run: |
+          ./gradlew --no-daemon --no-build-cache centralBundle
+          .github/scripts/check-central-bundle.sh build/central/central-bundle.zip "$VER" unsigned
+
+  publish:
+    name: publish
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # Manual-approval gate: `maven-central-release` has a required reviewer
+    # and only accepts v* tags. The job blocks here until approved.
+    environment:
+      name: maven-central-release
+      url: https://central.sonatype.com/artifact/page.poli/poli-page-spring-boot-starter/${{ needs.verify.outputs.version }}
+    permissions:
+      contents: write # create the GitHub Release
+    steps:
+      # gh reads GH_TOKEN; the write token is not left in .git/config while the
+      # build runs with the signing key.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        with:
+          cache-read-only: true
+
+      # Idempotency: if this version is already on Central (e.g. a re-run after
+      # the GitHub Release step failed), skip the upload but still cut the
+      # Release. Central would reject a second upload of the same version. The
+      # three modules go up in one bundle, so they are all there or none is.
+      # repo1 shows a version 10-30 minutes after PUBLISHED: a re-run inside
+      # that window uploads again and Central fails the duplicate, harmlessly.
+      - name: Check whether version is already published
+        id: published
+        env:
+          VER: ${{ needs.verify.outputs.version }}
+        run: |
+          set -euo pipefail
+          found=0
+          for m in poli-page-spring-boot-autoconfigure poli-page-spring-boot-starter poli-page-spring-boot-starter-webflux; do
+            CODE="$(curl -sS -o /dev/null -w '%{http_code}' \
+              "https://repo1.maven.org/maven2/page/poli/${m}/${VER}/${m}-${VER}.pom")"
+            echo "page.poli:${m}:${VER} on Central: HTTP ${CODE}"
+            case "$CODE" in
+              200) found=$((found + 1)) ;;
+              404) ;;
+              *) echo "::error::Unexpected HTTP $CODE from repo1.maven.org." >&2; exit 1 ;;
+            esac
+          done
+          case "$found" in
+            3) echo "exists=true" >> "$GITHUB_OUTPUT"
+               echo "Version ${VER} is already on Central: will skip the upload." ;;
+            0) echo "exists=false" >> "$GITHUB_OUTPUT"
+               echo "Version ${VER} is not on Central yet: will upload." ;;
+            *) echo "::error::Only ${found} of the 3 modules are on Central at ${VER}; check the Central Portal deployments." >&2
+               exit 1 ;;
+          esac
+
+      # Tests already ran on this exact commit in the verify job. The signing
+      # plugin reads the armored key and its passphrase from these Gradle
+      # properties (ORG_GRADLE_PROJECT_*).
+      - name: Build signed Central bundle
+        if: steps.published.outputs.exists == 'false'
+        env:
+          ORG_GRADLE_PROJECT_signingKey: ${{ secrets.GPG_PRIVATE_KEY }}
+          ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.GPG_PASSPHRASE }}
+          VER: ${{ needs.verify.outputs.version }}
+        run: |
+          ./gradlew --no-daemon --no-build-cache centralBundle
+          .github/scripts/check-central-bundle.sh build/central/central-bundle.zip "$VER" signed
+
+      # Central Portal Publisher API: upload with automatic publishing, then
+      # poll the deployment until it is PUBLISHED (or FAILED).
+      - name: Upload to Maven Central
+        if: steps.published.outputs.exists == 'false'
+        env:
+          CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
+          CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
+          VER: ${{ needs.verify.outputs.version }}
+        run: |
+          set -euo pipefail
+          TOKEN="$(printf '%s:%s' "$CENTRAL_USERNAME" "$CENTRAL_PASSWORD" | base64 -w0)"
+          echo "::add-mask::$TOKEN"
+          API=https://central.sonatype.com/api/v1/publisher
+          ID="$(curl -sS --fail-with-body -X POST \
+            -H "Authorization: Bearer $TOKEN" \
+            -F "bundle=@build/central/central-bundle.zip" \
+            "$API/upload?name=poli-page-spring-boot-${VER}&publishingType=AUTOMATIC")"
+          echo "Central deployment: $ID"
+          # Up to ~50 minutes; the job's timeout is 60. A failed status request
+          # is retried within that bound: the deployment goes on without it.
+          for _ in $(seq 1 150); do
+            if ! STATUS="$(curl -sS --fail-with-body -X POST \
+              -H "Authorization: Bearer $TOKEN" "$API/status?id=$ID")"; then
+              echo "::warning::Status request failed; retrying."
+              sleep 20
+              continue
+            fi
+            STATE="$(jq -r .deploymentState <<<"$STATUS")"
+            echo "Deployment state: $STATE"
+            case "$STATE" in
+              PUBLISHED) exit 0 ;;
+              FAILED)
+                echo "::error::Central rejected the deployment:" >&2
+                jq . <<<"$STATUS" >&2
+                exit 1 ;;
+            esac
+            sleep 20
+          done
+          echo "::error::Deployment $ID did not reach PUBLISHED in time; check https://central.sonatype.com/publishing/deployments." >&2
+          exit 1
+
+      - name: Extract CHANGELOG section for release notes
+        id: notes
+        env:
+          VER: ${{ needs.verify.outputs.version }}
+        run: |
+          set -euo pipefail
+          NOTES="$RUNNER_TEMP/release-notes.md"
+          awk -v ver="$VER" '
+            $0 ~ ("^## \\[" ver "\\]") { cap = 1; next }
+            cap && /^## \[/             { exit }
+            cap                         { print }
+          ' CHANGELOG.md > "$NOTES"
+          if [[ ! -s "$NOTES" ]]; then
+            echo "_See [CHANGELOG.md](CHANGELOG.md) for details._" > "$NOTES"
+          fi
+          echo "file=$NOTES" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NOTES_FILE: ${{ steps.notes.outputs.file }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          PRERELEASE=""
+          [[ "$TAG" == *-* ]] && PRERELEASE="--prerelease"   # vX.Y.Z-RC1 etc.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists — skipping."
+          else
+            gh release create "$TAG" \
+              --title "$TAG" \
+              --verify-tag \
+              --notes-file "$NOTES_FILE" \
+              $PRERELEASE
+          fi

@@ -416,7 +416,7 @@ public class DemoController {
           <p class="tagline">Your starter, your dashboard. Every SDK feature, one click away.</p>
           <div class="status-row">
             <span class="dot"></span>
-            <span>poli-page/spring-boot-starter v0.1.0</span>
+            <span>poli-page/spring-boot-starter v0.11.0</span>
           </div>
         </header>
 
@@ -514,7 +514,7 @@ public class DemoController {
         </section>
 
         <footer>
-          <span>poli-page/spring-boot-starter · v0.1.0</span>
+          <span>poli-page/spring-boot-starter · v0.11.0</span>
           <span class="links"><a href="https://docs.poli.page" target="_blank" rel="noopener">docs.poli.page</a></span>
         </footer>
 
