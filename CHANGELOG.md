@@ -10,6 +10,8 @@ All notable changes to `page.poli:poli-page-spring-boot-starter` (and the siblin
 - Contract tests: CI runs the `impl` cases of the Poli Page API contract (v1.3.0, `poli-page/api-contract`) against both example apps (`ContractTest`), and Dependabot proposes each new contract version.
 
 ### Changed
+- CI: the live API job runs on `main` (and on demand) against the production API with the sandbox key from the `POLI_PAGE_API_KEY` secret, and skips with a notice when the key is absent or not a `pp_sandbox_` key.
+- README: in MVC a subclass of `PoliPageWebMvcExceptionHandler` overrides the two-argument `handlePoliPageException(ex, response)`; the one-argument override is ignored.
 - **Breaking:** environment keys. A key is `pp_{env}_{32 hex}` and selects its environment (`pp_sandbox_…`, `pp_live_…`, `pp_staging_…`). `poli-page.api-key` is still required and must not be blank, but its `(test|live)` prefix check is gone: a key that does not match the SDK contract's full-key regex logs one startup warning that names the expected format and shows no part of the key, not even the `pp_{env}_` prefix, and the app starts anyway; the API decides whether it is valid.
 - **Breaking:** requires `page.poli:sdk` 0.11.0 (was `1.0.0-SNAPSHOT`), from Maven Central: environment API keys (`pp_{env}_{32 hex}`), and render inputs are `RenderInput`, with no `version` (templates have no versions). The build no longer reads `mavenLocal()`.
 - Example apps (MVC and WebFlux): SDK errors are answered by the starter's default error handler instead of each app's own, which built the body by hand and put `500` in its `status` for an error with no status. `GET /documents/{id}` still answers `302` to the presigned PDF URL.

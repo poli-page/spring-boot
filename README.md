@@ -217,6 +217,8 @@ Building your own answer from `e.toPayload()` instead skips that MVC clean-up.
 
 Declaring your own `PoliPageExceptionHandler` bean replaces the default one. `PoliPageExceptionHandler` is abstract and not an advice itself, so the replacement must be a `@ControllerAdvice`, for example a subclass of `PoliPageWebMvcExceptionHandler` or `PoliPageWebFluxExceptionHandler`; a bean of this type that is not an advice leaves SDK errors unhandled.
 
+In MVC, a subclass of `PoliPageWebMvcExceptionHandler` overrides the two-argument `handlePoliPageException(ex, response)`. The one-argument `handlePoliPageException(ex)` is not the method Spring calls for an MVC request, so an override of it is ignored.
+
 ### Handling errors yourself
 
 You can also catch the SDK's exceptions in your controller. The categories you typically discriminate on:
