@@ -28,4 +28,6 @@ dependencies {
 
     // Shared with the example apps' tests: the test keys and the stubbed API.
     testFixturesApi("org.wiremock:wiremock-standalone:3.9.1")
+    // The contract tests' runner (contract package): skips and aborts through JUnit.
+    testFixturesImplementation("org.junit.jupiter:junit-jupiter-api")
 }
