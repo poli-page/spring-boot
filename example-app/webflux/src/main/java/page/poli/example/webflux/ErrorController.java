@@ -10,9 +10,10 @@ import reactor.core.publisher.Mono;
 
 /**
  * Demo step 9 — renders the {@code getting-started} project's {@code does-not-exist} template so
- * the API answers 404 {@code TEMPLATE_NOT_FOUND}, reactive variant. {@link
- * PoliPageExceptionHandler} turns the SDK's typed exception into JSON ({@code code}, {@code
- * status}, {@code message}, {@code requestId}).
+ * the API answers 404 {@code TEMPLATE_NOT_FOUND}, reactive variant. There is no error mapping here:
+ * the starter's default {@link page.poli.sdk.spring.PoliPageExceptionHandler} answers the error's
+ * {@code toPayload()} ({@code code}, {@code message}, {@code status}, {@code requestId}) with
+ * status 404.
  */
 @RestController
 @RequestMapping("/errors")

@@ -9,9 +9,9 @@ import page.poli.sdk.input.RenderInput;
 
 /**
  * Demo step 9 — renders the {@code getting-started} project's {@code does-not-exist} template so
- * the API answers 404 {@code TEMPLATE_NOT_FOUND}. {@link PoliPageExceptionHandler} turns the SDK's
- * typed exception into JSON ({@code code}, {@code status}, {@code message}, {@code requestId}), so
- * a reader can see what the error surface looks like.
+ * the API answers 404 {@code TEMPLATE_NOT_FOUND}. There is no try/catch here: the starter's default
+ * {@link page.poli.sdk.spring.PoliPageExceptionHandler} answers the error's {@code toPayload()}
+ * ({@code code}, {@code message}, {@code status}, {@code requestId}) with status 404.
  */
 @RestController
 @RequestMapping("/errors")
