@@ -22,9 +22,10 @@ This starter wires the Poli Page Java SDK into Spring Boot's auto-configuration 
 
 - Java 17+
 - Spring Boot 3.2 / 3.3 / 3.4 (Jakarta namespace only)
+- The Poli Page Java SDK [`page.poli:sdk`](https://github.com/poli-page/sdk-java) 0.11.0 or later, from Maven Central (the starter brings it in)
 - A Poli Page API key — get one at [poli.page/dashboard/keys](https://poli.page/dashboard/keys)
 
-> **Pre-release note**: as of `0.1.0-SNAPSHOT`, neither this starter nor the underlying [`page.poli:sdk`](https://github.com/poli-page/sdk-java) is on Maven Central yet. The starter depends on `page.poli:sdk:0.10.0`; until that release is published, install it locally from sdk-java's `main`: `(cd ../sdk-java && ./mvnw install -DskipTests)`. The coordinates below are what consumers will use once both publish to Central.
+> **Pre-release note**: as of `0.1.0-SNAPSHOT`, this starter is not on Maven Central yet; the coordinates below are what consumers will use once it is published. Its SDK dependency, `page.poli:sdk:0.11.0`, is on Maven Central.
 
 ## Install
 
@@ -49,6 +50,8 @@ For reactive WebFlux apps, swap the artifact id:
 ```kotlin
 implementation("page.poli:poli-page-spring-boot-starter-webflux:0.1.0")
 ```
+
+Both starters depend on `page.poli:sdk:0.11.0`, which comes with them. To use a later SDK release before the starter moves to it, declare `page.poli:sdk` with that version in your own build.
 
 Set the API key in your environment:
 
@@ -135,6 +138,7 @@ You bind options under the `poli-page.*` prefix. The starter validates them at s
 | `health.enabled` | `true` | Register the Actuator `HealthIndicator` probing `/v1/health`. |
 | `metrics.enabled` | `true` | Register the Micrometer `MeterBinder` (retry/error counters and timer). |
 | `events.enabled` | `true` | Publish `PoliPageRetryEvent` / `PoliPageErrorEvent` via `ApplicationEventPublisher`. |
+| `error-handler.enabled` | `true` | Register `PoliPageExceptionHandler`, which answers an SDK error with its `toPayload()` body (see [Errors](#errors)). |
 
 ```yaml
 # application.yml
@@ -153,6 +157,7 @@ You inspect the resolved bean graph with `/actuator/conditions` (when Actuator i
 |---|---|
 | `page.poli.sdk.PoliPageClient` | Autowired SDK client (`render()`, `documents()`, `renderAsync()`, `documentsAsync()`). |
 | `page.poli.sdk.spring.PoliPageProperties` | `@ConfigurationProperties("poli-page")` record bound from `application.yml`. |
+| `page.poli.sdk.spring.PoliPageExceptionHandler` | (MVC and WebFlux) default `@RestControllerAdvice` answering a `PoliPageException` with its `toPayload()` body. |
 | `page.poli.sdk.spring.web.PoliPageResponses` | (MVC) `bytes` / `stream` / `preview` (stored-document HTML) / `documentRedirect` `ResponseEntity` builders. |
 | `page.poli.sdk.spring.reactive.PoliPageReactiveResponses` | (WebFlux) same shape, returning `Mono` / `Flux<DataBuffer>`. |
 | `page.poli.sdk.spring.event.PoliPageRetryEvent` | `ApplicationEvent` published before each SDK retry sleep. |
@@ -164,7 +169,33 @@ Full reference: [docs/auto-configuration.md](docs/auto-configuration.md).
 
 ## Errors
 
-The SDK throws `page.poli.sdk.exception.PoliPageException` (or a subclass from the sealed hierarchy). The starter does not catch or transform them — you handle them in your controller, an `@ExceptionHandler`, or a `@ControllerAdvice`. The categories you typically discriminate on:
+The SDK throws `page.poli.sdk.exception.PoliPageException` (or a subclass from the sealed hierarchy).
+
+### Default error handler
+
+Both starters register `PoliPageExceptionHandler`, a `@RestControllerAdvice` that answers any `PoliPageException` a controller throws (or a `Mono` / `CompletableFuture` fails with) as JSON. The body is the SDK's `toPayload()`, exactly:
+
+```json
+{ "code": "TEMPLATE_NOT_FOUND", "message": "Template 'does-not-exist' not found in project 'getting-started'.", "status": 404, "requestId": "req_…" }
+```
+
+- The HTTP status is the payload's `status`: the API's status, `503` for `network_error`, `504` for `timeout`. An error with no status (for example `aborted`) answers `500`, with `"status": null` in the body.
+- `requestId` is the API's `x-request-id`, or `null` when unknown. The `null` fields stay in the body even when you set `spring.jackson.default-property-inclusion=non_null`.
+- `Content-Type: application/json`.
+
+It is on by default. Turn it off with:
+
+```yaml
+poli-page:
+  error-handler:
+    enabled: false
+```
+
+It has the lowest precedence, so your own `@ExceptionHandler(PoliPageException.class)` in an ordered `@ControllerAdvice` takes over; declaring your own `PoliPageExceptionHandler` bean replaces it.
+
+### Handling errors yourself
+
+You can also catch the SDK's exceptions in your controller. The categories you typically discriminate on:
 
 - **Auth** — `PoliPageAuthException` (HTTP 401 / 403). Invalid or missing API key (`INVALID_API_KEY`, `MISSING_API_KEY`), a protected environment (`ENVIRONMENT_PROTECTED`), or an organisation in payment grace (`ORGANIZATION_PAYMENT_GRACE`).
 - **Rate limit** — `PoliPageRateLimitException` (HTTP 429). You hit the rate limit; back off per `retryAfter()`.
@@ -229,7 +260,7 @@ Spring Boot 2.x (`javax.*` namespace) is not supported. Maintenance follows the 
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md). CI also runs the [API contract](https://github.com/poli-page/api-contract) tests against both example apps; to run them locally: `POLI_CONTRACT=<path to contract.json> ./gradlew --no-daemon :example-app:mvc:test :example-app:webflux:test`.
 
 ## License
 

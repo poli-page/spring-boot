@@ -13,11 +13,6 @@ Both expose the same surface — the only difference is whether controllers retu
 
 - Java 17+
 - A Poli Page sandbox API key (`pp_sandbox_…`) — get one at [poli.page/dashboard/keys](https://poli.page/dashboard/keys)
-- `page.poli:sdk:0.10.0` installed from sdk-java's `main` via Maven (until it publishes to Central):
-
-```bash
-(cd ../sdk-java && ./mvnw install -DskipTests)
-```
 
 ## Running
 
@@ -69,8 +64,10 @@ curl -X DELETE -i http://localhost:8080/documents/$DOC      # 204
 curl -s http://localhost:8080/errors/not-found | jq           # 404 TEMPLATE_NOT_FOUND
 ```
 
+`GET /errors/not-found` has no try/catch: the starter's default error handler answers the SDK error's `toPayload()` (`code`, `message`, `status`, `requestId`) with its status. The same handler answers `503` when the API cannot be reached (`network_error`) and the API's last error after the retries.
+
 ## What's not here (and why)
 
-- **Few tests**: this is a demo app, not a tested artifact. Test coverage lives in the starter modules; each app only tests its `GET /errors/not-found` contract against a stubbed API.
+- **Few tests**: this is a demo app, not a tested artifact. Test coverage lives in the starter modules; each app tests its `GET /errors/not-found` answer against a stubbed API and runs the API contract's `impl` cases (`ContractTest`, see [CONTRIBUTING.md](../CONTRIBUTING.md#contract-tests)).
 - **No deployment manifest** (Dockerfile, Kubernetes YAML): the example is meant for local exploration.
 - **No security**: the endpoints are wide open — production apps would gate them behind their normal auth layer.

@@ -71,6 +71,7 @@ Three conditionals fire in order:
 @AutoConfiguration(after = PoliPageAutoConfiguration.class)
 @ConditionalOnClass({ PoliPageClient.class, RestController.class })
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
+@Import(PoliPageErrorHandlerConfiguration.class)
 public class PoliPageWebMvcAutoConfiguration {
 
     @Bean
@@ -84,6 +85,7 @@ public class PoliPageWebMvcAutoConfiguration {
 Two conditionals worth highlighting:
 
 - **`@ConditionalOnWebApplication(type = SERVLET)`** — the MVC starter activates `PoliPageResponses` only when Spring MVC is the runtime web stack. A reactive-only app gets `PoliPageReactiveResponses` (from the WebFlux starter) instead, and neither autoconfig clashes with the other.
+- **`@Import(PoliPageErrorHandlerConfiguration.class)`** — both stacks register the default error handler, `PoliPageExceptionHandler` (a `@RestControllerAdvice` answering a `PoliPageException` with its `toPayload()` body and status, or 500 when the payload has none), and the Jackson module that keeps its `null` fields. Both are `@ConditionalOnMissingBean` and switched off by `poli-page.error-handler.enabled=false`.
 - **`@AutoConfiguration(after = ...)`** — the bean ordering means the MVC autoconfig wires its helper after `PoliPageClient` is already a singleton in the context, so a constructor-injected `PoliPageResponses` can keep working even if a future revision needs the client.
 
 ## Overriding the client
@@ -124,6 +126,8 @@ poli-page:
     enabled: false      # remove the HealthIndicator
   metrics:
     enabled: false      # remove the Micrometer MeterBinder
+  error-handler:
+    enabled: false      # remove the default PoliPageExceptionHandler
 ```
 
 These flags read `@ConditionalOnProperty(value="...", matchIfMissing=true)`, so omitting them is equivalent to `=true`.

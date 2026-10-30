@@ -26,6 +26,8 @@ poli-page:
     enabled: true                              # default true — toggles MeterBinder
   events:
     enabled: true                              # default true — toggles ApplicationEvent bridge
+  error-handler:
+    enabled: true                              # default true — toggles the default error handler
 ```
 
 Bound to the `PoliPageProperties` record:
@@ -40,7 +42,8 @@ public record PoliPageProperties(
     @NotNull Retries retries,
     @NotNull Health health,
     @NotNull Metrics metrics,
-    @NotNull Events events
+    @NotNull Events events,
+    @NotNull ErrorHandler errorHandler
 ) {
     public record Retries(
         @Nullable @Min(0) @Max(10) Integer maxAttempts,
@@ -49,6 +52,7 @@ public record PoliPageProperties(
     public record Health(boolean enabled) {}
     public record Metrics(boolean enabled) {}
     public record Events(boolean enabled) {}
+    public record ErrorHandler(boolean enabled) {}
 }
 ```
 
@@ -64,6 +68,7 @@ public record PoliPageProperties(
 | `poli-page.health.enabled` | `boolean` | no | `true` | Set to `false` to skip registering the `HealthIndicator`. |
 | `poli-page.metrics.enabled` | `boolean` | no | `true` | Set to `false` to skip Micrometer meters. |
 | `poli-page.events.enabled` | `boolean` | no | `true` | Set to `false` to drop the `ApplicationEventPublisher` bridge. |
+| `poli-page.error-handler.enabled` | `boolean` | no | `true` | Set to `false` to drop `PoliPageExceptionHandler`, which answers an SDK error with its `toPayload()` body (see the README's [Errors](../README.md#errors)). |
 
 ### Relaxed binding & env-var mapping
 
@@ -190,7 +195,7 @@ For production, use the bootstrap configuration mechanism your platform already 
 ## Gotchas
 
 - **`base-url` must be absolute.** A relative URI like `/v1` is silently invalid; the autoconfig throws `IllegalArgumentException` from the SDK builder. Set the full origin: `https://api.poli.page` (no trailing path).
-- **Boolean toggles default to `true`.** `poli-page.health.enabled`, `poli-page.metrics.enabled`, `poli-page.events.enabled` are all opt-out, not opt-in. Omitting them is equivalent to `true` — flip to `false` to disable the corresponding bean.
+- **Boolean toggles default to `true`.** `poli-page.health.enabled`, `poli-page.metrics.enabled`, `poli-page.events.enabled`, `poli-page.error-handler.enabled` are all opt-out, not opt-in. Omitting them is equivalent to `true` — flip to `false` to disable the corresponding bean.
 - **Relaxed binding case is environment-specific.** Linux env vars are case-sensitive (`POLI_PAGE_API_KEY` only); Windows is not. Stick with UPPER_SNAKE_CASE for env vars to keep platforms aligned.
 - **`@DurationRange` is shipped by the starter, not by Spring Boot.** Spring Boot offers no Duration-range constraint. The starter declares `page.poli.sdk.spring.validation.DurationRange` (~40 lines) so the properties record can validate duration bounds at startup. The annotation accepts `minMillis` / `maxMillis` parameters so any Duration unit in `application.yml` (`s`, `m`, `h`) is honoured consistently.
 - **Properties aren't refreshable.** The autoconfig reads `PoliPageProperties` once at startup. Spring Cloud Config's `@RefreshScope` is not wired in v0.1 (deferred to a future release); changing `api-key` at runtime requires an application restart.

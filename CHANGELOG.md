@@ -6,10 +6,13 @@ All notable changes to `page.poli:poli-page-spring-boot-starter` (and the siblin
 
 ### Added
 - Initial release scaffolding.
+- Default error handler, on in both starters: `PoliPageExceptionHandler`, a `@RestControllerAdvice` that answers a `PoliPageException` with the SDK's `toPayload()` as JSON, `{ "code", "message", "status", "requestId" }`, and its status (`503` for `network_error`, `504` for `timeout`), or `500` with `"status": null` when the error has none. The `null` fields stay even with `spring.jackson.default-property-inclusion=non_null`. Turn it off with `poli-page.error-handler.enabled=false`, or declare your own `PoliPageExceptionHandler` bean.
+- Contract tests: CI runs the `impl` cases of the Poli Page API contract (v1.3.0, `poli-page/api-contract`) against both example apps (`ContractTest`), and Dependabot proposes each new contract version.
 
 ### Changed
 - **Breaking:** environment keys. A key is `pp_{env}_{32 hex}` and selects its environment (`pp_sandbox_…`, `pp_live_…`, `pp_staging_…`). `poli-page.api-key` is still required and must not be blank, but its `(test|live)` prefix check is gone: a key that does not match the SDK contract's full-key regex logs one startup warning that names the expected format and shows no part of the key, not even the `pp_{env}_` prefix, and the app starts anyway; the API decides whether it is valid.
-- **Breaking:** depends on `page.poli:sdk:0.10.0` (was `1.0.0-SNAPSHOT`): render inputs are `RenderInput`, with no `version`.
+- **Breaking:** requires `page.poli:sdk` 0.11.0 (was `1.0.0-SNAPSHOT`), from Maven Central: environment API keys (`pp_{env}_{32 hex}`), and render inputs are `RenderInput`, with no `version` (templates have no versions). The build no longer reads `mavenLocal()`.
+- Example apps (MVC and WebFlux): SDK errors are answered by the starter's default error handler instead of each app's own, which built the body by hand and put `500` in its `status` for an error with no status. `GET /documents/{id}` still answers `302` to the presigned PDF URL.
 - Example apps (MVC and WebFlux): render inputs carry no `version`, `POLI_PAGE_BASE_URL` optionally overrides the API URL, and the error demo is `GET /errors/not-found` (template `does-not-exist`, data `{}`, answering `404 TEMPLATE_NOT_FOUND` with its `code`, `status`, `message` and `requestId`), replacing `GET /errors/bad-version`. Each app now tests that contract against a stubbed API.
 - `RenderAgainstDevelopApiIT` runs only with a sandbox key (`POLI_PAGE_API_KEY` matching `pp_sandbox_.+`).
 

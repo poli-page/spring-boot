@@ -4,11 +4,7 @@ Thanks for your interest in improving this starter. This guide covers setup, tes
 
 ## Setup
 
-Install `page.poli:sdk:0.10.0` from sdk-java's `main` once (until it ships to Maven Central):
-
-```bash
-(cd ../sdk-java && ./mvnw install -DskipTests)
-```
+The build resolves every dependency, the SDK `page.poli:sdk:0.11.0` included, from Maven Central.
 
 Set `POLI_PAGE_API_KEY` to a sandbox key before running integration tests:
 
@@ -31,6 +27,18 @@ Per-module:
 ./gradlew --no-daemon :poli-page-spring-boot-starter:test
 ./gradlew --no-daemon :poli-page-spring-boot-starter-webflux:test
 ```
+
+### Contract tests
+
+`ContractTest` in each example app runs the `impl` cases of the [Poli Page API contract](https://github.com/poli-page/api-contract) against that app: a local server plays the API, the app's SDK points at it through `poli-page.base-url`, and the test compares the app's answer and the SDK's requests with each case. CI runs them against the contract version pinned in `.github/workflows/ci.yml`. Locally, point `POLI_CONTRACT` at a `contract.json`:
+
+```bash
+POLI_CONTRACT=<path to contract.json> ./gradlew --no-daemon :example-app:mvc:test :example-app:webflux:test
+```
+
+Without `POLI_CONTRACT` they are skipped locally and fail under CI. A case that may fail is listed, with its reason, in the app's `src/test/resources/page/poli/example/<app>/contract-skip.json`; a listed case that passes fails the run.
+
+### Integration tests
 
 Integration tests run only when `POLI_PAGE_API_KEY` is a sandbox key (`pp_sandbox_…`). They are skipped when it is unset, so PR contributors without a key still get a green local run, and when it belongs to any other environment, so they never render into a counted one. Set `POLI_PAGE_TEST_BASE_URL` to target an API deployment other than the SDK default.
 
