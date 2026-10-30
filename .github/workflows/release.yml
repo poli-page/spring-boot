@@ -96,10 +96,11 @@ jobs:
       # build, and that the bundle holds the three modules and nothing else,
       # without needing the signing key.
       - name: Central bundle (unsigned)
+        env:
+          VER: ${{ steps.resolve.outputs.version }}
         run: |
           ./gradlew --no-daemon --no-build-cache centralBundle
-          .github/scripts/check-central-bundle.sh build/central/central-bundle.zip \
-            "${{ steps.resolve.outputs.version }}" unsigned
+          .github/scripts/check-central-bundle.sh build/central/central-bundle.zip "$VER" unsigned
 
   publish:
     name: publish
@@ -114,7 +115,11 @@ jobs:
     permissions:
       contents: write # create the GitHub Release
     steps:
+      # gh reads GH_TOKEN; the write token is not left in .git/config while the
+      # build runs with the signing key.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
@@ -129,11 +134,14 @@ jobs:
       # the GitHub Release step failed), skip the upload but still cut the
       # Release. Central would reject a second upload of the same version. The
       # three modules go up in one bundle, so they are all there or none is.
+      # repo1 shows a version 10-30 minutes after PUBLISHED: a re-run inside
+      # that window uploads again and Central fails the duplicate, harmlessly.
       - name: Check whether version is already published
         id: published
+        env:
+          VER: ${{ needs.verify.outputs.version }}
         run: |
           set -euo pipefail
-          VER="${{ needs.verify.outputs.version }}"
           found=0
           for m in poli-page-spring-boot-autoconfigure poli-page-spring-boot-starter poli-page-spring-boot-starter-webflux; do
             CODE="$(curl -sS -o /dev/null -w '%{http_code}' \
@@ -162,10 +170,10 @@ jobs:
         env:
           ORG_GRADLE_PROJECT_signingKey: ${{ secrets.GPG_PRIVATE_KEY }}
           ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.GPG_PASSPHRASE }}
+          VER: ${{ needs.verify.outputs.version }}
         run: |
           ./gradlew --no-daemon --no-build-cache centralBundle
-          .github/scripts/check-central-bundle.sh build/central/central-bundle.zip \
-            "${{ needs.verify.outputs.version }}" signed
+          .github/scripts/check-central-bundle.sh build/central/central-bundle.zip "$VER" signed
 
       # Central Portal Publisher API: upload with automatic publishing, then
       # poll the deployment until it is PUBLISHED (or FAILED).
@@ -174,9 +182,9 @@ jobs:
         env:
           CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
           CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
+          VER: ${{ needs.verify.outputs.version }}
         run: |
           set -euo pipefail
-          VER="${{ needs.verify.outputs.version }}"
           TOKEN="$(printf '%s:%s' "$CENTRAL_USERNAME" "$CENTRAL_PASSWORD" | base64 -w0)"
           echo "::add-mask::$TOKEN"
           API=https://central.sonatype.com/api/v1/publisher
@@ -185,10 +193,15 @@ jobs:
             -F "bundle=@build/central/central-bundle.zip" \
             "$API/upload?name=poli-page-spring-boot-${VER}&publishingType=AUTOMATIC")"
           echo "Central deployment: $ID"
-          # Up to ~50 minutes; the job's timeout is 60.
+          # Up to ~50 minutes; the job's timeout is 60. A failed status request
+          # is retried within that bound: the deployment goes on without it.
           for _ in $(seq 1 150); do
-            STATUS="$(curl -sS --fail-with-body -X POST \
-              -H "Authorization: Bearer $TOKEN" "$API/status?id=$ID")"
+            if ! STATUS="$(curl -sS --fail-with-body -X POST \
+              -H "Authorization: Bearer $TOKEN" "$API/status?id=$ID")"; then
+              echo "::warning::Status request failed; retrying."
+              sleep 20
+              continue
+            fi
             STATE="$(jq -r .deploymentState <<<"$STATUS")"
             echo "Deployment state: $STATE"
             case "$STATE" in
@@ -205,9 +218,10 @@ jobs:
 
       - name: Extract CHANGELOG section for release notes
         id: notes
+        env:
+          VER: ${{ needs.verify.outputs.version }}
         run: |
           set -euo pipefail
-          VER="${{ needs.verify.outputs.version }}"
           NOTES="$RUNNER_TEMP/release-notes.md"
           awk -v ver="$VER" '
             $0 ~ ("^## \\[" ver "\\]") { cap = 1; next }
@@ -222,6 +236,7 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          NOTES_FILE: ${{ steps.notes.outputs.file }}
         run: |
           set -euo pipefail
           TAG="${GITHUB_REF_NAME}"
@@ -233,6 +248,6 @@ jobs:
             gh release create "$TAG" \
               --title "$TAG" \
               --verify-tag \
-              --notes-file "${{ steps.notes.outputs.file }}" \
+              --notes-file "$NOTES_FILE" \
               $PRERELEASE
           fi
