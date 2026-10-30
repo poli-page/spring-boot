@@ -4,6 +4,9 @@ All notable changes to `page.poli:poli-page-spring-boot-starter` (and the siblin
 
 ## [Unreleased]
 
+### Changed
+- The live API CI job passes the optional `POLI_PAGE_BASE_URL` secret to the integration test (unset: the SDK default), next to the `pp_sandbox_` key in `POLI_PAGE_API_KEY`.
+
 ## [0.11.0] - 2026-10-30
 
 First release on Maven Central: `page.poli:poli-page-spring-boot-starter`, `page.poli:poli-page-spring-boot-starter-webflux` and the `page.poli:poli-page-spring-boot-autoconfigure` module they share. The version follows the Poli Page SDK it requires, `page.poli:sdk` 0.11.0. The 0.1.0 version was never published; its entries are folded in here, and the Breaking, Removed and Fixed entries below are relative to its development snapshots.

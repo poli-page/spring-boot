@@ -42,6 +42,8 @@ Without `POLI_CONTRACT` they are skipped locally and fail under CI. A case that 
 
 Integration tests run only when `POLI_PAGE_API_KEY` is a sandbox key (`pp_sandbox_…`). They are skipped when it is unset, so PR contributors without a key still get a green local run, and when it belongs to any other environment, so they never render into a counted one.
 
+They call the SDK default API, or the one in `POLI_PAGE_BASE_URL` when that is set. The live API CI job reads both from repository secrets: `POLI_PAGE_API_KEY` (a `pp_sandbox_` key) and the optional `POLI_PAGE_BASE_URL` (unset: the SDK default).
+
 ## Lint, format, build
 
 ```bash

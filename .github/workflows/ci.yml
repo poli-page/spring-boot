@@ -93,11 +93,15 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         if: steps.key.outputs.present == 'true'
 
-      - name: Live API test (prod, sandbox key)
+      - name: Live API test (sandbox key)
         if: steps.key.outputs.present == 'true'
         env:
           POLI_PAGE_API_KEY: ${{ secrets.POLI_PAGE_API_KEY }}
+          POLI_PAGE_BASE_URL: ${{ secrets.POLI_PAGE_BASE_URL }}
         run: |
+          # An unset secret expands to an empty string; drop it so the starter
+          # falls back to the SDK default base URL.
+          if [ -z "$POLI_PAGE_BASE_URL" ]; then unset POLI_PAGE_BASE_URL; fi
           # The *IT classes live in the starter's test source set and run only when the key is set.
           # --rerun: the key is not a task input, so a cached keyless result would skip them.
           ./gradlew --no-daemon :poli-page-spring-boot-starter:test --tests '*IT' --rerun
