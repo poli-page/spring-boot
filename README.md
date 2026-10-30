@@ -138,7 +138,7 @@ You bind options under the `poli-page.*` prefix. The starter validates them at s
 | `health.enabled` | `true` | Register the Actuator `HealthIndicator` probing `/v1/health`. |
 | `metrics.enabled` | `true` | Register the Micrometer `MeterBinder` (retry/error counters and timer). |
 | `events.enabled` | `true` | Publish `PoliPageRetryEvent` / `PoliPageErrorEvent` via `ApplicationEventPublisher`. |
-| `error-handler.enabled` | `true` | Register `PoliPageExceptionHandler`, which answers an SDK error with its `toPayload()` body (see [Errors](#errors)). |
+| `error-handler.enabled` | `true` | Register the default error handler, which answers an SDK error with its `toPayload()` body (see [Errors](#errors)). |
 
 ```yaml
 # application.yml
@@ -157,7 +157,7 @@ You inspect the resolved bean graph with `/actuator/conditions` (when Actuator i
 |---|---|
 | `page.poli.sdk.PoliPageClient` | Autowired SDK client (`render()`, `documents()`, `renderAsync()`, `documentsAsync()`). |
 | `page.poli.sdk.spring.PoliPageProperties` | `@ConfigurationProperties("poli-page")` record bound from `application.yml`. |
-| `page.poli.sdk.spring.PoliPageExceptionHandler` | (MVC and WebFlux) default `@RestControllerAdvice` answering a `PoliPageException` with its `toPayload()` body. |
+| `page.poli.sdk.spring.PoliPageExceptionHandler` | Answers a `PoliPageException` with its `toPayload()` body; the default error handler of each stack (`web.PoliPageWebMvcExceptionHandler`, `reactive.PoliPageWebFluxExceptionHandler`) is a `@RestControllerAdvice` subclass. |
 | `page.poli.sdk.spring.web.PoliPageResponses` | (MVC) `bytes` / `stream` / `preview` (stored-document HTML) / `documentRedirect` `ResponseEntity` builders. |
 | `page.poli.sdk.spring.reactive.PoliPageReactiveResponses` | (WebFlux) same shape, returning `Mono` / `Flux<DataBuffer>`. |
 | `page.poli.sdk.spring.event.PoliPageRetryEvent` | `ApplicationEvent` published before each SDK retry sleep. |
@@ -173,7 +173,7 @@ The SDK throws `page.poli.sdk.exception.PoliPageException` (or a subclass from t
 
 ### Default error handler
 
-Both starters register `PoliPageExceptionHandler`, a `@RestControllerAdvice` that answers any `PoliPageException` a controller throws (or a `Mono` / `CompletableFuture` fails with) as JSON. The body is the SDK's `toPayload()`, exactly:
+Both starters register a default error handler, a `@RestControllerAdvice` (`PoliPageWebMvcExceptionHandler` in MVC, `PoliPageWebFluxExceptionHandler` in WebFlux, both subclasses of `page.poli.sdk.spring.PoliPageExceptionHandler`) that answers any `PoliPageException` an annotated controller throws (or a `Mono` / `CompletableFuture` fails with) as JSON. The body is the SDK's `toPayload()`, exactly:
 
 ```json
 { "code": "TEMPLATE_NOT_FOUND", "message": "Template 'does-not-exist' not found in project 'getting-started'.", "status": 404, "requestId": "req_…" }
@@ -181,7 +181,10 @@ Both starters register `PoliPageExceptionHandler`, a `@RestControllerAdvice` tha
 
 - The HTTP status is the payload's `status`: the API's status, `503` for `network_error`, `504` for `timeout`. An error with no status (for example `aborted`) answers `500`, with `"status": null` in the body.
 - `requestId` is the API's `x-request-id`, or `null` when unknown. The `null` fields stay in the body even when you set `spring.jackson.default-property-inclusion=non_null`.
-- `Content-Type: application/json`.
+- `Content-Type: application/json`. In MVC, PDF headers already set on the response (`Content-Disposition` and the other content headers, for example from `PoliPageResponses.stream` when the first read of the PDF fails) are removed first, so the error is not saved as a PDF. When part of the PDF was already sent, nothing is written and the connection is closed, so the client sees a truncated download rather than a PDF with JSON appended.
+- Each answered error is logged on `page.poli.sdk.spring.PoliPageExceptionHandler`: `ERROR` for a 5xx or no status, `WARN` otherwise, with the code, status, request id and message (never the API key).
+- Like any `@ControllerAdvice`, it covers annotated controllers only: errors from servlet filters, `WebFilter`s or functional `RouterFunction` endpoints do not reach it.
+- The `null` fields are kept by a Jackson module (`PoliPageErrorPayloadModule`) that Spring Boot adds to the `ObjectMapper` it builds. If you declare your own `ObjectMapper` bean, build it from Boot's `Jackson2ObjectMapperBuilder` or register the module on it.
 
 It is on by default. Turn it off with:
 
@@ -191,7 +194,26 @@ poli-page:
     enabled: false
 ```
 
-It has the lowest precedence, so your own `@ExceptionHandler(PoliPageException.class)` in an ordered `@ControllerAdvice` takes over; declaring your own `PoliPageExceptionHandler` bean replaces it.
+It has the lowest precedence. Spring answers an exception with the first `@ControllerAdvice`, in order, that has any matching `@ExceptionHandler`, not with the most specific one across advices. So any advice of yours that handles `PoliPageException` or a supertype (`Exception`, `RuntimeException`), ordered or not, normally answers SDK errors instead of the default handler. If you have such a catch-all and want to keep the SDK payload, handle `PoliPageException` in an advice ordered before it and delegate to the starter's handler:
+
+```java
+@RestControllerAdvice
+@Order(Ordered.HIGHEST_PRECEDENCE)
+class PoliPageErrors {
+    private final PoliPageExceptionHandler poliPage;
+
+    PoliPageErrors(PoliPageExceptionHandler poliPage) {
+        this.poliPage = poliPage;
+    }
+
+    @ExceptionHandler(PoliPageException.class)
+    ResponseEntity<ErrorPayload> handle(PoliPageException e) {
+        return poliPage.handlePoliPageException(e); // or build your answer from e.toPayload()
+    }
+}
+```
+
+Declaring your own `PoliPageExceptionHandler` bean (for example a subclass of the stack's handler) replaces the default one.
 
 ### Handling errors yourself
 
