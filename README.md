@@ -25,7 +25,7 @@ This starter wires the Poli Page Java SDK into Spring Boot's auto-configuration 
 - The Poli Page Java SDK [`page.poli:sdk`](https://github.com/poli-page/sdk-java) 0.11.0 or later, from Maven Central (the starter brings it in)
 - A Poli Page API key — get one at [poli.page/dashboard/keys](https://poli.page/dashboard/keys)
 
-> **Pre-release note**: as of `0.1.0-SNAPSHOT`, this starter is not on Maven Central yet; the coordinates below are what consumers will use once it is published. Its SDK dependency, `page.poli:sdk:0.11.0`, is on Maven Central.
+> The starters are on Maven Central under the `page.poli` group from 0.11.0, the version of the SDK they require.
 
 ## Install
 
@@ -35,20 +35,20 @@ Maven:
 <dependency>
     <groupId>page.poli</groupId>
     <artifactId>poli-page-spring-boot-starter</artifactId>
-    <version>0.1.0</version>
+    <version>0.11.0</version>
 </dependency>
 ```
 
 Gradle (Kotlin DSL):
 
 ```kotlin
-implementation("page.poli:poli-page-spring-boot-starter:0.1.0")
+implementation("page.poli:poli-page-spring-boot-starter:0.11.0")
 ```
 
 For reactive WebFlux apps, swap the artifact id:
 
 ```kotlin
-implementation("page.poli:poli-page-spring-boot-starter-webflux:0.1.0")
+implementation("page.poli:poli-page-spring-boot-starter-webflux:0.11.0")
 ```
 
 Both starters depend on `page.poli:sdk:0.11.0`, which comes with them. To use a later SDK release before the starter moves to it, declare `page.poli:sdk` with that version in your own build.
@@ -280,7 +280,7 @@ See [example-app/README.md](example-app/README.md) for the full route map.
 
 | Starter | Spring Boot | Java |
 |---|---|---|
-| `0.1.x` | `3.2.x` / `3.3.x` / `3.4.x` | `17` / `21` |
+| `0.11.x` | `3.2.x` / `3.3.x` / `3.4.x` | `17` / `21` |
 
 Spring Boot 2.x (`javax.*` namespace) is not supported. Maintenance follows the Spring Boot upstream support window — new majors land within one minor of upstream release.
 

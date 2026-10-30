@@ -15,7 +15,7 @@ A typical reactive use case: a controller that aggregates rendering with two oth
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("page.poli:poli-page-spring-boot-starter-webflux:0.1.0")
+    implementation("page.poli:poli-page-spring-boot-starter-webflux:0.11.0")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
 }
 ```

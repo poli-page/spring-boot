@@ -59,6 +59,10 @@ CI matrix: Java 17 / 21 × Spring Boot 3.2.+ / 3.3.+ / 3.4.+ (6 cells). All must
 - PR description: what changed, why, how it was tested.
 - CI must be green on all 6 matrix cells before merge.
 
+## Releasing
+
+Releases are cut from a `vX.Y.Z` tag and published to Maven Central after a maintainer approves them. See [RELEASING.md](RELEASING.md).
+
 ## Reporting issues
 
 Open an issue at [github.com/poli-page/spring-boot/issues](https://github.com/poli-page/spring-boot/issues) with:
