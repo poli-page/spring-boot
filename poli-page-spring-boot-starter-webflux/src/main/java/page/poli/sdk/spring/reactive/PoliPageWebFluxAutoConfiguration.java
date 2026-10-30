@@ -5,14 +5,18 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.core.io.buffer.DataBufferFactory;
 import org.springframework.core.io.buffer.DefaultDataBufferFactory;
 import org.springframework.web.reactive.config.WebFluxConfigurer;
 import page.poli.sdk.PoliPageClient;
 import page.poli.sdk.spring.PoliPageAutoConfiguration;
+import page.poli.sdk.spring.PoliPageErrorHandlerConfiguration;
+import page.poli.sdk.spring.PoliPageExceptionHandler;
 
 /**
- * WebFlux-flavoured auto-configuration that registers {@link PoliPageReactiveResponses}.
+ * WebFlux-flavoured auto-configuration that registers {@link PoliPageReactiveResponses} and, unless
+ * {@code poli-page.error-handler.enabled=false}, the {@link PoliPageExceptionHandler}.
  *
  * <p>Activates only in a reactive stack ({@link ConditionalOnWebApplication.Type#REACTIVE}).
  * Requires a {@link DataBufferFactory} bean — Spring WebFlux provides one out of the box; falls
@@ -22,6 +26,7 @@ import page.poli.sdk.spring.PoliPageAutoConfiguration;
 @AutoConfiguration(after = PoliPageAutoConfiguration.class)
 @ConditionalOnClass({PoliPageClient.class, WebFluxConfigurer.class})
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.REACTIVE)
+@Import(PoliPageErrorHandlerConfiguration.class)
 public class PoliPageWebFluxAutoConfiguration {
 
   @Bean

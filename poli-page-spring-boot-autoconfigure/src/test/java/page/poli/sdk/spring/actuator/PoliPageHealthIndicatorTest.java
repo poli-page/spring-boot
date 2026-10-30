@@ -76,6 +76,7 @@ class PoliPageHealthIndicatorTest {
         new PoliPageProperties.Retries(null, null),
         new PoliPageProperties.Health(true),
         new PoliPageProperties.Metrics(true),
-        new PoliPageProperties.Events(true));
+        new PoliPageProperties.Events(true),
+        new PoliPageProperties.ErrorHandler(true));
   }
 }

@@ -8,6 +8,9 @@ dependencies {
     api("page.poli:sdk:0.11.0")
     api("org.springframework.boot:spring-boot-autoconfigure")
 
+    // The error handler; both starters bring spring-web.
+    compileOnly("org.springframework:spring-web")
+
     // Optional dependencies — beans are @ConditionalOnClass so consumers without these still get a working starter.
     compileOnly("org.springframework.boot:spring-boot-actuator")
     compileOnly("io.micrometer:micrometer-core")

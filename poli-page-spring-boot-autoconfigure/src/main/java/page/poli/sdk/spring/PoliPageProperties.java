@@ -31,6 +31,7 @@ import page.poli.sdk.spring.validation.DurationRange;
  * @param health Actuator HealthIndicator toggle
  * @param metrics Micrometer MeterBinder toggle
  * @param events ApplicationEvent bridge toggle
+ * @param errorHandler error-handler toggle
  */
 @ConfigurationProperties("poli-page")
 @Validated
@@ -41,7 +42,8 @@ public record PoliPageProperties(
     @Valid @DefaultValue Retries retries,
     @Valid @DefaultValue Health health,
     @Valid @DefaultValue Metrics metrics,
-    @Valid @DefaultValue Events events) {
+    @Valid @DefaultValue Events events,
+    @Valid @DefaultValue ErrorHandler errorHandler) {
 
   /**
    * Retry-policy options.
@@ -73,4 +75,12 @@ public record PoliPageProperties(
    * @param enabled set to {@code false} to skip publishing retry/error events
    */
   public record Events(@DefaultValue("true") boolean enabled) {}
+
+  /**
+   * Error-handler toggle. Defaults to {@code true}.
+   *
+   * @param enabled set to {@code false} to skip registering the {@code PoliPageExceptionHandler}
+   *     that answers an SDK error with its {@code toPayload()} body
+   */
+  public record ErrorHandler(@DefaultValue("true") boolean enabled) {}
 }
