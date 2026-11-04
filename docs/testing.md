@@ -6,7 +6,7 @@
 
 A unit test that hits `api.poli.page` is brittle, slow, and consumes your quota. A unit test that ignores the SDK entirely misses the wiring layer the starter is responsible for. The right test pyramid for an app using this starter is: most tests stub `PoliPageClient` at the bean level (sub-second, no network), one or two integration tests use a WireMock-backed local server (medium, no quota), and one smoke test hits the live API with a `pp_sandbox_` key (gated on that key).
 
-The starter itself follows the same pyramid — see [spec §14](spec/spring-boot-starter-specification.md#14-testing-strategy). This page covers the techniques an *application* using the starter should adopt.
+The starter itself follows the same pyramid. This page covers the techniques an *application* using the starter should adopt.
 
 ## How
 
@@ -205,4 +205,3 @@ Re-testing these in your app — or in the starter — is wasted effort and crea
 
 - [Auto-configuration](auto-configuration.md) — what the starter wires that you may want to override in tests.
 - [Events](events.md) — `@RecordApplicationEvents` usage for asserting on retry/error publication.
-- [spec/spring-boot-starter-specification.md §14](spec/spring-boot-starter-specification.md#14-testing-strategy) — the starter's own testing strategy, mirrored here for application code.

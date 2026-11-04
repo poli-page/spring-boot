@@ -125,4 +125,3 @@ spring:
 
 - [Responses](responses.md) — the non-streaming `bytes()` helper for small PDFs.
 - [WebFlux](webflux.md) — `Mono<ResponseEntity<Flux<DataBuffer>>>` reactive variant.
-- [spec/spring-boot-starter-specification.md §8.4](spec/spring-boot-starter-specification.md#84-streamingresponsebody-ownership) — connection-ownership rationale.

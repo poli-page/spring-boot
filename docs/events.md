@@ -143,11 +143,10 @@ This is what the autoconfig does under the hood; copy the pattern if you also ne
 - **`PoliPageErrorEvent` fires only for terminal failures.** Transient 5xx that the SDK successfully retries past do not surface here — they show up as `PoliPageRetryEvent` entries. The exception itself still propagates back from the call site, so wrap the SDK call in a `try/catch` if you need to react to the exception in the caller.
 - **SDK hooks must not throw.** The SDK wraps each `Consumer` in a swallowing `try/catch`, so an exception thrown from a listener is logged at SLF4J `WARN` and dropped. Make listeners log-and-return, not raise. The SDK's invariant: hooks must never break the request path.
 - **`@EventListener` runs on the SDK's retry thread by default.** Slow listeners block the SDK's retry loop and inflate your perceived latency. Annotate listeners that do I/O with `@Async` and configure a sensible `taskExecutor`. Logging is fast enough not to need `@Async`.
-- **Spring AOT (native image) needs reflection hints for the event classes.** `@EventListener` discovery uses reflection. Native-image users may need `@ImportRuntimeHints(PoliPageEventsRuntimeHints.class)` — tracked as v0.2 work in [spec §17](spec/spring-boot-starter-specification.md#17-deferred-to-v02-do-not-build-in-v010).
+- **Spring AOT (native image) needs reflection hints for the event classes.** `@EventListener` discovery uses reflection. Native-image users may need to register reflection hints for them with `@ImportRuntimeHints`; the starter ships none.
 
 ## Related
 
 - [Auto-configuration](auto-configuration.md) — how the bridge is registered and conditionally enabled.
 - [Configuration properties](configuration-properties.md#per-property-reference) — the `poli-page.events.enabled` toggle.
 - [Actuator](actuator.md) — Micrometer counters that consume these events for retry/error rate dashboards.
-- [spec/spring-boot-starter-specification.md §10](spec/spring-boot-starter-specification.md#10-eventdispatcher-integration) — event-class shape and bridge implementation.

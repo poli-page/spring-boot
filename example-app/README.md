@@ -64,7 +64,7 @@ curl -X DELETE -i http://localhost:8080/documents/$DOC      # 204
 curl -s http://localhost:8080/errors/not-found | jq           # 404 TEMPLATE_NOT_FOUND
 ```
 
-`GET /errors/not-found` has no try/catch: the starter's default error handler answers the SDK error's `toPayload()` (`code`, `message`, `status`, `requestId`) with its status. The same handler answers `503` when the API cannot be reached (`network_error`) and the API's last error after the retries.
+`GET /errors/not-found` has no try/catch: the starter's default error handler answers the SDK error's `toPayload()` (`code`, `message`, `status`, `requestId`) with its status. The same handler answers `503` when the API cannot be reached (`network_error`), `502` when a 2xx answer is not JSON (`invalid_response`), and the API's last error after the retries.
 
 ## What's not here (and why)
 

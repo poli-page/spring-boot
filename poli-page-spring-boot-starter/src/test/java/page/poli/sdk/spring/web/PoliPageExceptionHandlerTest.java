@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.WebApplicationContext;
+import page.poli.sdk.PoliPageErrorCode;
 import page.poli.sdk.exception.ErrorPayload;
 import page.poli.sdk.exception.PoliPageException;
 import page.poli.sdk.exception.PoliPageNetworkException;
@@ -128,6 +129,35 @@ class PoliPageExceptionHandlerTest {
   }
 
   @Test
+  void answersAnInvalidResponseWith502() {
+    // The SDK keeps the 2xx as statusCode(); toPayload() answers 502.
+    runner.run(
+        context ->
+            assertAnswer(
+                context,
+                "/throw/invalid-response",
+                502,
+                """
+                {"code": "invalid_response", "message": "Invalid response: HTTP 200 body is not JSON",
+                 "status": 502, "requestId": "req_invalid"}
+                """));
+  }
+
+  @Test
+  void answersAnIoErrorWith500AndANullStatus() {
+    runner.run(
+        context ->
+            assertAnswer(
+                context,
+                "/throw/io",
+                500,
+                """
+                {"code": "io_error", "message": "Failed to write PDF: /out/invoice.pdf: Permission denied",
+                 "status": null, "requestId": null}
+                """));
+  }
+
+  @Test
   void answersAnErrorWithNoStatusWith500AndANullStatus() {
     runner.run(
         context ->
@@ -203,6 +233,20 @@ class PoliPageExceptionHandlerTest {
             new PoliPageNetworkException("network_error", "Network request failed", null);
         case "timeout" ->
             new PoliPageNetworkException("timeout", "Request timed out after 60000ms", null);
+        case "invalid-response" ->
+            new PoliPageException(
+                PoliPageErrorCode.INVALID_RESPONSE,
+                200,
+                "Invalid response: HTTP 200 body is not JSON",
+                "req_invalid",
+                null);
+        case "io" ->
+            new PoliPageException(
+                PoliPageErrorCode.IO_ERROR,
+                0,
+                "Failed to write PDF: /out/invoice.pdf: Permission denied",
+                null,
+                null);
         default -> new PoliPageException("aborted", 0, "Request was aborted", null, null);
       };
     }

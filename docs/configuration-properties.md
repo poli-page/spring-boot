@@ -198,10 +198,9 @@ For production, use the bootstrap configuration mechanism your platform already 
 - **Boolean toggles default to `true`.** `poli-page.health.enabled`, `poli-page.metrics.enabled`, `poli-page.events.enabled`, `poli-page.error-handler.enabled` are all opt-out, not opt-in. Omitting them is equivalent to `true` — flip to `false` to disable the corresponding bean.
 - **Relaxed binding case is environment-specific.** Linux env vars are case-sensitive (`POLI_PAGE_API_KEY` only); Windows is not. Stick with UPPER_SNAKE_CASE for env vars to keep platforms aligned.
 - **`@DurationRange` is shipped by the starter, not by Spring Boot.** Spring Boot offers no Duration-range constraint. The starter declares `page.poli.sdk.spring.validation.DurationRange` (~40 lines) so the properties record can validate duration bounds at startup. The annotation accepts `minMillis` / `maxMillis` parameters so any Duration unit in `application.yml` (`s`, `m`, `h`) is honoured consistently.
-- **Properties aren't refreshable.** The autoconfig reads `PoliPageProperties` once at startup. Spring Cloud Config's `@RefreshScope` is not wired in v0.1 (deferred to a future release); changing `api-key` at runtime requires an application restart.
+- **Properties aren't refreshable.** The autoconfig reads `PoliPageProperties` once at startup. Spring Cloud Config's `@RefreshScope` is not wired; changing `api-key` at runtime requires an application restart.
 
 ## Related
 
 - [Auto-configuration](auto-configuration.md) — how the properties drive the bean wiring.
-- [spec/spring-boot-starter-specification.md §6](spec/spring-boot-starter-specification.md#6-configuration-properties) — full property tree with rationale for each validation rule.
 - [README → Quick start](../README.md#quick-start) — the minimal-config snippet this deep-dive expands.

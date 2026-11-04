@@ -151,4 +151,3 @@ Browsers that understand RFC 5987 (every modern browser) use `filename*`; older 
 
 - [Streaming](streaming.md) — deep-dive into `StreamingResponseBody` semantics and connection ownership.
 - [WebFlux](webflux.md) — the reactive equivalent (`Mono<ResponseEntity<byte[]>>`, `Flux<DataBuffer>`).
-- [spec/spring-boot-starter-specification.md §8](spec/spring-boot-starter-specification.md#8-polipageresponses-contract-mvc) — full signature reference and header table.

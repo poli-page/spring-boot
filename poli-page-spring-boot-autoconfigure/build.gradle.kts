@@ -5,7 +5,7 @@ plugins {
 description = "Common auto-configuration for the Poli Page Spring Boot starter (MVC + WebFlux share this)"
 
 dependencies {
-    api("page.poli:sdk:0.11.0")
+    api("page.poli:sdk:0.13.0")
     api("org.springframework.boot:spring-boot-autoconfigure")
 
     // The error handler; both starters bring spring-web.

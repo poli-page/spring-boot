@@ -12,7 +12,8 @@ import page.poli.sdk.exception.PoliPageException;
  * PoliPageException#toPayload()}, written as JSON ({@code {"code", "message", "status",
  * "requestId"}}, with {@code null} for an unknown {@code status} or {@code requestId}), and the
  * HTTP status is the payload's {@code status} ({@code 503} for {@code network_error}, {@code 504}
- * for {@code timeout}), or {@code 500} when the payload has none.
+ * for {@code timeout}, {@code 502} for {@code invalid_response}), or {@code 500} when the payload
+ * has none (for example {@code io_error}).
  *
  * <p>This class is not an advice itself. The starters register a stack-specific
  * {@code @RestControllerAdvice} subclass ({@code PoliPageWebMvcExceptionHandler} in Spring MVC,

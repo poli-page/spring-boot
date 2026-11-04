@@ -182,11 +182,10 @@ If the starter isn't activating, this is the first place to look — usually a m
 - **The autoconfig respects the SDK's defaults.** Properties unset in `application.yml` resolve to `null` in the `PoliPageProperties` record, and the builder's `if (props.x() != null)` guard skips the corresponding setter. So unset properties pass through to the SDK's own `PoliPageClient.Builder` defaults — a single source of truth that survives SDK version bumps without a starter release.
 - **Multiple starters in the same app pick the right web stack.** Including both `poli-page-spring-boot-starter` and `poli-page-spring-boot-starter-webflux` is supported (e.g. for a hybrid migration), but only one of `PoliPageWebMvcAutoConfiguration` / `PoliPageWebFluxAutoConfiguration` activates per application — gated on `@ConditionalOnWebApplication(type = ...)`. The other is silently inert.
 - **`@ConditionalOnMissingBean` is type-strict.** A user-defined bean must have type `PoliPageClient` (or a subclass) to suppress the starter's bean. A `@Bean Object myPoliPageClient` would NOT count — register it with the right return type.
-- **AOT / Spring Native is best-effort in v0.1.** The autoconfig uses reflection on Jackson types via the SDK; native-image users may need `@ImportRuntimeHints` to register additional reflection metadata. Tracked as v0.2 work in [spec §17](spec/spring-boot-starter-specification.md#17-deferred-to-v02-do-not-build-in-v010).
+- **AOT / Spring Native is best-effort.** The autoconfig uses reflection on Jackson types via the SDK; native-image users may need `@ImportRuntimeHints` to register additional reflection metadata.
 
 ## Related
 
 - [Configuration properties](configuration-properties.md) — how `application.yml` keys reach the autoconfig.
 - [Events](events.md) — what the `PoliPageEventBridge` does when `poli-page.events.enabled=true`.
 - [Actuator](actuator.md) — the health indicator and metrics that ride alongside the client bean.
-- [spec/spring-boot-starter-specification.md §7](spec/spring-boot-starter-specification.md#7-di--bean-registration) — full bean map and conditional rules.
