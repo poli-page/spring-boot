@@ -22,10 +22,10 @@ This starter wires the Poli Page Java SDK into Spring Boot's auto-configuration 
 
 - Java 17+
 - Spring Boot 3.2 / 3.3 / 3.4 (Jakarta namespace only)
-- The Poli Page Java SDK [`page.poli:sdk`](https://github.com/poli-page/sdk-java) 0.11.0 or later, from Maven Central (the starter brings it in)
+- The Poli Page Java SDK [`page.poli:sdk`](https://github.com/poli-page/sdk-java) 0.13.x, from Maven Central (the starter brings it in)
 - A Poli Page API key — get one at [poli.page/dashboard/keys](https://poli.page/dashboard/keys)
 
-> The starters are on Maven Central under the `page.poli` group from 0.11.0, the version of the SDK they require.
+> The starters are on Maven Central under the `page.poli` group from 0.13.0. They share their major.minor with the Poli Page API and the SDK: starter `0.13.x` requires `page.poli:sdk` `0.13.x`.
 
 ## Install
 
@@ -35,23 +35,23 @@ Maven:
 <dependency>
     <groupId>page.poli</groupId>
     <artifactId>poli-page-spring-boot-starter</artifactId>
-    <version>0.11.0</version>
+    <version>0.13.0</version>
 </dependency>
 ```
 
 Gradle (Kotlin DSL):
 
 ```kotlin
-implementation("page.poli:poli-page-spring-boot-starter:0.11.0")
+implementation("page.poli:poli-page-spring-boot-starter:0.13.0")
 ```
 
 For reactive WebFlux apps, swap the artifact id:
 
 ```kotlin
-implementation("page.poli:poli-page-spring-boot-starter-webflux:0.11.0")
+implementation("page.poli:poli-page-spring-boot-starter-webflux:0.13.0")
 ```
 
-Both starters depend on `page.poli:sdk:0.11.0`, which comes with them. To use a later SDK release before the starter moves to it, declare `page.poli:sdk` with that version in your own build.
+Both starters depend on `page.poli:sdk:0.13.0`, which comes with them. To take a later `0.13.x` patch of the SDK before the starter moves to it, declare `page.poli:sdk` with that version in your own build. An SDK of another minor (`0.14.x`) goes with the starter of that minor.
 
 Set the API key in your environment:
 
@@ -179,7 +179,7 @@ Both starters register a default error handler, a `@RestControllerAdvice` (`Poli
 { "code": "TEMPLATE_NOT_FOUND", "message": "Template 'does-not-exist' not found in project 'getting-started'.", "status": 404, "requestId": "req_…" }
 ```
 
-- The HTTP status is the payload's `status`: the API's status, `503` for `network_error`, `504` for `timeout`. An error with no status (for example `aborted`) answers `500`, with `"status": null` in the body.
+- The HTTP status is the payload's `status`: the API's status, `503` for `network_error`, `504` for `timeout`, `502` for `invalid_response` (a 2xx answer whose body is not JSON, such as a proxy's HTML page). An error with no status (for example `aborted`, or `io_error` when `renderToFile` cannot write the file) answers `500`, with `"status": null` in the body.
 - `requestId` is the API's `x-request-id`, or `null` when unknown. The `null` fields stay in the body even when you set `spring.jackson.default-property-inclusion=non_null`.
 - `Content-Type: application/json`. In MVC, PDF headers already set on the response (`Content-Disposition` and the other content headers, for example from `PoliPageResponses.stream` when the first read of the PDF fails) are removed first, so the error is not saved as a PDF. When part of the PDF was already sent, nothing is written and the error is rethrown: Tomcat and Jetty then close the connection, so the client sees a truncated download; Undertow ends the response normally, so the PDF is cut short with no error signal. JSON is never appended to the PDF.
 - Each answered error is logged on `page.poli.sdk.spring.PoliPageExceptionHandler`: `ERROR` for a 5xx or no status, `WARN` otherwise, with the code, status, request id and message (never the API key). In MVC, an error after part of the PDF was sent gets one `WARN` line from `PoliPageWebMvcExceptionHandler`; the servlet container logs the rethrown error itself.
@@ -227,6 +227,7 @@ You can also catch the SDK's exceptions in your controller. The categories you t
 - **Rate limit** — `PoliPageRateLimitException` (HTTP 429). You hit the rate limit; back off per `retryAfter()`.
 - **Request rejected** — `PoliPageValidationException` (400 / 422), `PoliPageNotFoundException` (404, e.g. `TEMPLATE_NOT_FOUND`, `PROJECT_NOT_IN_ENVIRONMENT`), `PoliPageGoneException` (410 `DOCUMENT_GONE`). Template, data, or document lifecycle errors.
 - **Network / transport** — `PoliPageNetworkException` (no HTTP status). Connection failure, DNS, TLS, or timeout.
+- **Bad answer or local write** — a plain `PoliPageException`; match on `code()`. `PoliPageErrorCode.INVALID_RESPONSE` (`invalid_response`): a 2xx answer whose body is not JSON; `statusCode()` keeps the 2xx and `toPayload()` answers `502`. `PoliPageErrorCode.IO_ERROR` (`io_error`): `renderToFile` could not write the target, with the `IOException` as `getCause()`. Neither is retried.
 
 Pattern-match exhaustively against the sealed hierarchy:
 
@@ -278,9 +279,9 @@ See [example-app/README.md](example-app/README.md) for the full route map.
 
 ## Compatibility
 
-| Starter | Spring Boot | Java |
-|---|---|---|
-| `0.11.x` | `3.2.x` / `3.3.x` / `3.4.x` | `17` / `21` |
+| Starter | SDK | Spring Boot | Java |
+|---|---|---|---|
+| `0.13.x` | `page.poli:sdk` `0.13.x` | `3.2.x` / `3.3.x` / `3.4.x` | `17` / `21` |
 
 Spring Boot 2.x (`javax.*` namespace) is not supported. Maintenance follows the Spring Boot upstream support window — new majors land within one minor of upstream release.
 

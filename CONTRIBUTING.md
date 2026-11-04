@@ -4,7 +4,7 @@ Thanks for your interest in improving this starter. This guide covers setup, tes
 
 ## Setup
 
-The build resolves every dependency, the SDK `page.poli:sdk:0.11.0` included, from Maven Central.
+The build resolves every dependency, the SDK `page.poli:sdk:0.13.0` included, from Maven Central.
 
 Set `POLI_PAGE_API_KEY` to a sandbox key before running integration tests:
 

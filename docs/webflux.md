@@ -15,7 +15,7 @@ A typical reactive use case: a controller that aggregates rendering with two oth
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("page.poli:poli-page-spring-boot-starter-webflux:0.11.0")
+    implementation("page.poli:poli-page-spring-boot-starter-webflux:0.13.0")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
 }
 ```
@@ -155,4 +155,3 @@ public class PoliPageRoutes {
 
 - [Responses](responses.md) — MVC equivalents for direct comparison.
 - [Streaming](streaming.md) — `StreamingResponseBody` rationale (the MVC half of the story).
-- [spec/spring-boot-starter-specification.md §9](spec/spring-boot-starter-specification.md#9-webflux-response-helpers) — full reactive-helper signatures and cancellation semantics.
