@@ -104,13 +104,21 @@ Adding `spring-boot-starter-actuator` automatically pulls in `micrometer-core`. 
 |---|---|---|---|
 | `poli.page.retries.total` | Counter | `attempt`, `reason` | Incremented per `PoliPageRetryEvent`. |
 | `poli.page.retries.delay` | Timer | `attempt`, `reason` | Records each retry's `delay` Duration. |
-| `poli.page.errors.total` | Counter | `code`, `status_class` (`4xx`/`5xx`/`network`) | Incremented per `PoliPageErrorEvent`. |
+| `poli.page.errors.total` | Counter | `code`, `status_class` (`4xx`/`5xx`/`network`/`local`) | Incremented per `PoliPageErrorEvent`. |
 
 There is no `poli.page.client.up` gauge: implementing it correctly would require polling `/v1/health` on every Prometheus scrape, or maintaining a `@Scheduled` cache refresh. Operators get the same up/down signal by scraping `/actuator/health` directly via Prometheus's HTTP probe.
 
 ### Tag cardinality
 
-`reason` is one of four SDK-defined values: `5xx`, `rate_limit`, `timeout`, `network_error`. `code` is one of the ~9 codes from the sealed `PoliPageException` hierarchy. `status_class` is one of three buckets. `attempt` is bounded by `maxRetries + 1` (default 3). The full cardinality is small and stable — Prometheus-safe.
+`reason` is one of four SDK-defined values: `5xx`, `rate_limit`, `timeout`, `network_error`. `code` is one of the SDK's error codes (`PoliPageErrorCode`, or a code the API sends). `status_class` is one of four buckets:
+
+| `status_class` | Errors |
+|---|---|
+| `4xx` / `5xx` | The API answered with that status. `invalid_response` (a 2xx answer whose body is not JSON, answered `502` by the error handler) is `5xx`. |
+| `network` | The API or the PDF storage could not be reached or did not answer in time: `network_error`, `timeout`, and `DOWNLOAD_FAILED` whatever the storage status. |
+| `local` | Any other error without an API status, raised in your process: `io_error` (the PDF file could not be written, for example a full disk), `aborted`, `invalid_options`. |
+
+`attempt` is bounded by `maxRetries + 1` (default 3). The full cardinality is small and stable — Prometheus-safe.
 
 ### Prometheus scrape
 
@@ -166,7 +174,7 @@ A reasonable starting alerting policy: scrape `/actuator/health` via Prometheus'
 
 - **The health endpoint hits a real network resource.** With a 2-second timeout per probe, a heavily-loaded Kubernetes cluster doing aggressive readiness checks can exert noticeable load on the Poli Page edge — and a flapping network between your app and `api.poli.page` will flip the status. Use the `readiness` group, not `liveness`, so Kubernetes removes the pod from the LB without restarting it.
 - **`show-details` defaults to `never` outside dev.** Production endpoints typically run with `management.endpoint.health.show-details: when_authorized` — the `details.error` field showing the JDK exception class only surfaces for authenticated callers. Worth ensuring the operator dashboard authenticates.
-- **There is no `up` gauge in v0.1.** The original design called for one but it was deferred — see the note in the metrics section above. Use the Prometheus HTTP probe against `/actuator/health` for the up/down signal.
+- **There is no `up` gauge.** See the note in the metrics section above. Use the Prometheus HTTP probe against `/actuator/health` for the up/down signal.
 - **Tag cardinality stays low only if you don't add tags downstream.** Resist the temptation to add `documentId` or `templateSlug` as tags via a custom `@EventListener` — that explodes Prometheus's storage.
 - **Health and metrics are independent toggles.** `poli-page.health.enabled=false` does not disable metrics, and `poli-page.metrics.enabled=false` does not disable health. Each subsystem has its own switch.
 

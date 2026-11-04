@@ -92,6 +92,72 @@ class PoliPageMetricsTest {
   }
 
   @Test
+  void errorEventTimeoutTaggedAsNetwork() {
+    assertStatusClass(
+        new PoliPageNetworkException(
+            PoliPageErrorCode.TIMEOUT, "Request timed out after 60000ms", null),
+        "network");
+  }
+
+  @Test
+  void errorEventDownloadFailedTaggedAsNetworkWhateverTheStorageStatus() {
+    assertStatusClass(
+        new PoliPageException(
+            PoliPageErrorCode.DOWNLOAD_FAILED, 0, "Failed to download PDF: timeout", null, null),
+        "network");
+    assertStatusClass(
+        new PoliPageException(
+            PoliPageErrorCode.DOWNLOAD_FAILED, 403, "Failed to download PDF: HTTP 403", null, null),
+        "network");
+  }
+
+  @Test
+  void errorEventInvalidResponseTaggedAs5xx() {
+    // statusCode() keeps the 2xx; the error handler answers 502.
+    assertStatusClass(
+        new PoliPageException(
+            PoliPageErrorCode.INVALID_RESPONSE,
+            200,
+            "Invalid response: HTTP 200 body is not JSON",
+            "req_c",
+            null),
+        "5xx");
+  }
+
+  @Test
+  void errorEventIoErrorTaggedAsLocal() {
+    assertStatusClass(
+        new PoliPageException(
+            PoliPageErrorCode.IO_ERROR,
+            0,
+            "Failed to write PDF: /out/invoice.pdf: No space left on device",
+            null,
+            null),
+        "local");
+  }
+
+  @Test
+  void errorEventAbortedTaggedAsLocal() {
+    assertStatusClass(
+        new PoliPageException(PoliPageErrorCode.ABORTED, 0, "Request was aborted", null, null),
+        "local");
+  }
+
+  private void assertStatusClass(PoliPageException ex, String statusClass) {
+    metrics.onError(new PoliPageErrorEvent(this, ex));
+    Counter counter =
+        registry
+            .find("poli.page.errors.total")
+            .tag("code", ex.code())
+            .tag("status_class", statusClass)
+            .counter();
+    assertThat(counter).as("%s tagged %s", ex.code(), statusClass).isNotNull();
+    assertThat(registry.find("poli.page.errors.total").tag("code", ex.code()).counters())
+        .as("%s has one status_class", ex.code())
+        .hasSize(1);
+  }
+
+  @Test
   void multipleRetryEventsAccumulate() {
     metrics.onRetry(
         new PoliPageRetryEvent(this, new RetryEvent(1, Duration.ofMillis(500), 502, "5xx")));
