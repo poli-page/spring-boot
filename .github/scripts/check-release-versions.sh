@@ -6,10 +6,11 @@
 #
 # The starters share their major.minor with the Poli Page API, and starter 0.N
 # requires page.poli:sdk 0.N.x. This script:
-#   - fails unless every page.poli:sdk dependency in the Gradle build files is
-#     a plain version X.Y.Z (no range, no dynamic or SNAPSHOT version) with the
-#     release's major.minor: the published POM and Gradle module file carry
-#     that version;
+#   - fails unless every page.poli:sdk dependency in the tracked Gradle build
+#     files and version catalogs is a plain version X.Y.Z (no range, no dynamic
+#     or SNAPSHOT version) with the release's major.minor, and on any
+#     declaration of it the script cannot read: the published POM and Gradle
+#     module file carry that version;
 #   - reads the contract commit pinned in .github/workflows/ci.yml and
 #     .github/workflows/release.yml (never its `# vX.Y.Z` comment), requires the
 #     two pins to be the same commit, lists the contract repository's tags, and
@@ -34,21 +35,41 @@ if ! [[ "$version" =~ ^([0-9]+)\.([0-9]+)\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]]; then
 fi
 release_minor="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
 
-# page.poli:sdk: X.Y.Z of the release's major.minor, in every Gradle build file
-# that declares it.
+# page.poli:sdk: X.Y.Z of the release's major.minor, wherever the build declares
+# it. Every tracked Gradle build file (*.gradle.kts, *.gradle) and version
+# catalog (*.toml) line that names the page.poli group and the sdk artifact,
+# comments aside, must be one of the forms below; any other form fails, so a
+# declaration this script cannot read never passes unchecked:
+#   "page.poli:sdk:X.Y.Z"                                  (string notation)
+#   group = "page.poli", name = "sdk", version = "X.Y.Z"   (named arguments; `:` in Groovy)
+#   module = "page.poli:sdk", version = "X.Y.Z"            (version catalog)
+# Single or double quotes alike.
+q="[\"']"
+v="([^\"']*)"
+s='[[:space:]]*'
+string_form="${q}page\\.poli:sdk:${v}${q}"
+named_form="group${s}[:=]${s}${q}page\\.poli${q}${s},${s}name${s}[:=]${s}${q}sdk${q}${s},${s}version${s}[:=]${s}${q}${v}${q}"
+catalog_form="module${s}=${s}${q}page\\.poli:sdk${q}${s},${s}version${s}=${s}${q}${v}${q}"
+
+build_files=()
+while IFS= read -r f; do build_files+=("$f"); done < <(git -C "$REPO_ROOT" ls-files -- '*.gradle.kts' '*.gradle' '*.toml')
+[ "${#build_files[@]}" -gt 0 ] || fail "no tracked Gradle build file found"
 declarations="$(
     cd "$REPO_ROOT" &&
-        find . -name '*.gradle.kts' -not -path '*/build/*' -not -path './.gradle/*' -print0 |
-        xargs -0 grep -HnE '"page\.poli:sdk[:"]' || true
+        grep -HnE 'page\.poli([^.[:alnum:]_-]|$)' -- "${build_files[@]}" |
+        grep -E '(^|[^.[:alnum:]_-])sdk([^.[:alnum:]_-]|$)' |
+        grep -vE '^[^:]+:[0-9]+:[[:space:]]*(//|#|\*|/\*)' || true
 )"
 [ -n "$declarations" ] || fail "no Gradle build file declares page.poli:sdk"
 while IFS= read -r line; do
     where="${line%%:*}"
-    where="${where#./}"
-    if ! [[ "$line" =~ \"page\.poli:sdk:([^\"]*)\" ]]; then
-        fail "release v$version needs page.poli:sdk $release_minor.x, but $where declares it without a version: $line"
+    content="${line#*:*:}"
+    content="${content#"${content%%[![:space:]]*}"}"
+    if [[ "$content" =~ $string_form ]] || [[ "$content" =~ $named_form ]] || [[ "$content" =~ $catalog_form ]]; then
+        sdk="${BASH_REMATCH[1]}"
+    else
+        fail "cannot read the page.poli:sdk version in $where: '$content'. Declare it as \"page.poli:sdk:X.Y.Z\" (a version catalog's version.ref and a version set elsewhere are not read)"
     fi
-    sdk="${BASH_REMATCH[1]}"
     if ! [[ "$sdk" =~ ^([0-9]+)\.([0-9]+)\.[0-9]+$ ]]; then
         fail "release v$version needs page.poli:sdk $release_minor.x as a plain X.Y.Z version, but $where requires '$sdk'"
     fi
