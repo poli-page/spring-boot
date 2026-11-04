@@ -54,6 +54,20 @@ They call the SDK default API, or the one in `POLI_PAGE_BASE_URL` when that is s
 
 CI matrix: Java 17 / 21 × Spring Boot 3.2.+ / 3.3.+ / 3.4.+ (6 cells). All must be green before merge.
 
+`./gradlew build` also writes one JaCoCo XML report per module (`<module>/build/reports/jacoco/test/jacocoTestReport.xml`). The Java 21 / Spring Boot 3.4.+ cell uploads the three published modules' reports to Codecov. CodeQL scans the Java code on every PR, on `main` and weekly.
+
+## Documentation
+
+The docs site at <https://poli-page.github.io/spring-boot/> is an Astro Starlight site in `docs/`, on the integration profile of the shared `sdk-docs-preset` (vendored under `docs/src/preset/`). Pages are MDX files in `docs/src/content/docs/`; the build lints their shape. To build it locally:
+
+```bash
+cd docs
+npm ci
+npm run build    # docs/dist/index.html
+```
+
+The `Docs` workflow deploys it to GitHub Pages on a push to `main` that touches `docs/`. Keep the pages in step with the code: the `poli-page.*` property names and defaults, bean names and helper signatures come from the autoconfigure and starter modules.
+
 ## Pull requests
 
 - [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`.

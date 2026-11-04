@@ -9,6 +9,10 @@ on:
 
 permissions:
   contents: read
+  # Required by codecov-action's use_oidc: true so it can mint a short-lived
+  # OIDC token. Codecov rejects unauthenticated uploads on the default
+  # (protected) branch, and we don't keep a CODECOV_TOKEN secret.
+  id-token: write
 
 jobs:
   test:
@@ -62,6 +66,20 @@ jobs:
 
       - name: Spotless check
         run: ./gradlew --no-daemon spotlessCheck
+
+      # `build` leaves one JaCoCo XML report per module under build/reports/jacoco/test/. The
+      # example apps are not published and stay out. Only upload once (Java 21 on the newest
+      # Spring Boot line). use_oidc: true is mandatory: Codecov rejects tokenless uploads on the
+      # default (protected) branch, and we've granted id-token: write at the workflow level. No
+      # CODECOV_TOKEN secret needed. fail_ci_if_error stays false so a Codecov outage or
+      # rate-limit never blocks the build.
+      - name: Upload coverage to Codecov
+        if: matrix.java == '21' && matrix.spring-boot == '3.4.+'
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          files: poli-page-spring-boot-autoconfigure/build/reports/jacoco/test/jacocoTestReport.xml,poli-page-spring-boot-starter/build/reports/jacoco/test/jacocoTestReport.xml,poli-page-spring-boot-starter-webflux/build/reports/jacoco/test/jacocoTestReport.xml
+          use_oidc: true
+          fail_ci_if_error: false
 
   integration:
     runs-on: ubuntu-latest

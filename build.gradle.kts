@@ -15,6 +15,7 @@ subprojects {
     apply(plugin = "java-library")
     apply(plugin = "io.spring.dependency-management")
     apply(plugin = "com.diffplug.spotless")
+    apply(plugin = "jacoco")
 
     extensions.configure<JavaPluginExtension> {
         toolchain {
@@ -55,6 +56,15 @@ subprojects {
         testLogging {
             events("passed", "failed", "skipped")
             showStandardStreams = false
+        }
+        // The coverage report (the XML that CI uploads to Codecov) follows every test run.
+        finalizedBy("jacocoTestReport")
+    }
+
+    tasks.withType<JacocoReport>().configureEach {
+        reports {
+            xml.required.set(true)
+            html.required.set(false)
         }
     }
 }
