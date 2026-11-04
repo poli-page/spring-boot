@@ -125,6 +125,15 @@ class PoliPageMetricsTest {
   }
 
   @Test
+  void errorEventRedirectTaggedAs5xx() {
+    // The SDK does not follow redirects: a 3xx is an unexpected answer from the server side.
+    assertStatusClass(
+        new PoliPageException(
+            PoliPageErrorCode.INTERNAL_ERROR, 301, "Unexpected HTTP 301", "req_d", null),
+        "5xx");
+  }
+
+  @Test
   void errorEventIoErrorTaggedAsLocal() {
     assertStatusClass(
         new PoliPageException(

@@ -22,15 +22,16 @@ import page.poli.sdk.spring.event.PoliPageRetryEvent;
  * <p>{@code status_class} says where the error comes from:
  *
  * <ul>
- *   <li>{@code 4xx} / {@code 5xx}: the API answered with that status. {@code invalid_response} (a
- *       2xx answer whose body is not JSON, answered {@code 502} by the error handler) is {@code
- *       5xx};
+ *   <li>{@code 4xx} / {@code 5xx}: the API answered with that status. Any other status an error
+ *       carries is {@code 5xx}, an unexpected answer from the server side: {@code invalid_response}
+ *       (a 2xx answer whose body is not JSON, answered {@code 502} by the error handler), or a 3xx,
+ *       since the SDK does not follow redirects;
  *   <li>{@code network}: the API or the PDF storage could not be reached or did not answer in time
  *       ({@code network_error}, {@code timeout}, and {@code DOWNLOAD_FAILED} whatever the storage
  *       status);
- *   <li>{@code local}: any other error without an API status, raised in the application's process,
- *       such as {@code io_error} (the PDF file could not be written), {@code aborted} or {@code
- *       invalid_options}.
+ *   <li>{@code local}: any other error with no HTTP status at all, raised in the application's
+ *       process, such as {@code io_error} (the PDF file could not be written), {@code aborted} or
+ *       {@code invalid_options}.
  * </ul>
  *
  * <p>Tag cardinality is bounded: {@code reason} is one of four SDK-defined values, {@code code} is
@@ -83,16 +84,14 @@ public final class PoliPageMetrics implements MeterBinder {
         || PoliPageErrorCode.DOWNLOAD_FAILED.equals(code)) {
       return "network";
     }
-    if (PoliPageErrorCode.INVALID_RESPONSE.equals(code)) {
-      return "5xx";
-    }
     int status = ex.statusCode();
-    if (status >= 500 && status < 600) {
-      return "5xx";
+    if (status == 0) {
+      return "local";
     }
     if (status >= 400 && status < 500) {
       return "4xx";
     }
-    return "local";
+    // A 5xx, and any other status: invalid_response keeps its 2xx, and a 3xx is not followed.
+    return "5xx";
   }
 }

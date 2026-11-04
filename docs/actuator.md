@@ -114,9 +114,9 @@ There is no `poli.page.client.up` gauge: implementing it correctly would require
 
 | `status_class` | Errors |
 |---|---|
-| `4xx` / `5xx` | The API answered with that status. `invalid_response` (a 2xx answer whose body is not JSON, answered `502` by the error handler) is `5xx`. |
+| `4xx` / `5xx` | The API answered with that status. Any other status an error carries is `5xx`, an unexpected answer from the server side: `invalid_response` (a 2xx answer whose body is not JSON, answered `502` by the error handler), or a 3xx, since the SDK does not follow redirects. |
 | `network` | The API or the PDF storage could not be reached or did not answer in time: `network_error`, `timeout`, and `DOWNLOAD_FAILED` whatever the storage status. |
-| `local` | Any other error without an API status, raised in your process: `io_error` (the PDF file could not be written, for example a full disk), `aborted`, `invalid_options`. |
+| `local` | Any other error with no HTTP status at all, raised in your process: `io_error` (the PDF file could not be written, for example a full disk), `aborted`, `invalid_options`. |
 
 `attempt` is bounded by `maxRetries + 1` (default 3). The full cardinality is small and stable — Prometheus-safe.
 
