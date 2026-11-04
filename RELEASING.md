@@ -10,7 +10,15 @@ Each release publishes three artifacts, all at the same version, in one Central 
 | `page.poli:poli-page-spring-boot-starter-webflux` | The WebFlux starter                            |
 | `page.poli:poli-page-spring-boot-autoconfigure`   | The auto-configuration both starters depend on |
 
-Each comes with its sources and javadoc jars, POM, Gradle module file, checksums and signatures. The example apps and the autoconfigure module's test fixtures are not published. The version of record is `version` in `gradle.properties`; the starters' version follows the `page.poli:sdk` version they require.
+Each comes with its sources and javadoc jars, POM, Gradle module file, checksums and signatures. The example apps and the autoconfigure module's test fixtures are not published. The version of record is `version` in `gradle.properties`.
+
+## Versions
+
+The starters share their major.minor with the Poli Page API: starter `0.13.x` talks to API `0.13`, passes the [API contract](https://github.com/poli-page/api-contract) `v0.13.0`, and requires `page.poli:sdk` of the same minor. Patch numbers are free: a fix to the starters alone is a patch, whatever the API's or the SDK's patch. A change of the API contract, a new feature, and a raise of the minimum Java or Spring Boot version are each a minor. The starters may skip minors when they have nothing to ship for one.
+
+The build requires the SDK as a plain version, `page.poli:sdk:0.13.0` in `poli-page-spring-boot-autoconfigure/build.gradle.kts`, not a range such as `[0.13.0,0.14)`. The published POM and Gradle module file list the version the build resolved (see `versionMapping` in `build.gradle.kts`), so a range would not reach them anyway; in the build it would make each run take whatever 0.13.x is newest that day, and Maven also counts `0.14.0-RC1` as below `0.14`. A plain version in a POM is a soft requirement: an application that declares `page.poli:sdk:0.13.1` itself gets that patch. The minor is enforced at release time instead.
+
+The Release workflow refuses a tag whose major.minor differs from the API contract version pinned in `.github/workflows/ci.yml` and `.github/workflows/release.yml` (both must pin the same commit), or from the `page.poli:sdk` version the build declares.
 
 ## One-time setup (before the first release)
 
@@ -30,7 +38,8 @@ On 2026-10-30 none of the three artifact names existed on Maven Central (`https:
 
 1. Set `version` in `gradle.properties` (no `-SNAPSHOT`).
 2. Move `[Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD` in `CHANGELOG.md`, leave an empty `## [Unreleased]` above it, and update the compare links at the bottom.
-3. Update the version in the README install snippets, the README compatibility table and `docs/webflux.md`.
+3. Update the version in the README install snippets, the README compatibility table, `docs/webflux.md` and the two `v…` labels in each example app's `DemoController`.
+   For a new minor `X.Y`: require `page.poli:sdk:X.Y.Z` in `poli-page-spring-boot-autoconfigure/build.gradle.kts`, pin the API contract's `vX.Y.Z` commit in `.github/workflows/ci.yml` and `.github/workflows/release.yml`, and check both with `.github/scripts/check-release-versions.sh X.Y.Z` (it needs network access to list the contract's tags).
 4. Merge `chore: release X.Y.Z` to `main` and wait for CI to go green.
 5. Optional local check, which uploads nothing: build the bundle and check its contents.
    ```bash
@@ -39,7 +48,7 @@ On 2026-10-30 none of the three artifact names existed on Maven Central (`https:
    ```
    To build it signed, pass the key as `ORG_GRADLE_PROJECT_signingKey` and `ORG_GRADLE_PROJECT_signingPassword`, then check it with `signed`.
 6. Tag the merge commit and push the tag: `git tag vX.Y.Z <sha> && git push origin vX.Y.Z`.
-7. The `verify` job checks that the tag matches `gradle.properties` and that `CHANGELOG.md` has the `## [X.Y.Z]` section, runs `spotlessCheck` and the full build with the pinned API contract (`POLI_CONTRACT`), then builds the unsigned Central bundle and checks it holds the three artifacts and nothing else.
+7. The `verify` job checks that the tag matches `gradle.properties` and that `CHANGELOG.md` has the `## [X.Y.Z]` section, runs `.github/scripts/check-release-versions.sh` (the pinned API contract commit must carry a stable tag `vX.Y.Z` of the tag's major.minor, the `# vX.Y.Z` comment next to the pin is not trusted, and `page.poli:sdk` must be required at the tag's major.minor; the error names both versions), runs `spotlessCheck` and the full build with the pinned API contract (`POLI_CONTRACT`), then builds the unsigned Central bundle and checks it holds the three artifacts and nothing else.
 8. Approve the `publish` job in the Actions UI. It builds and checks the signed bundle, uploads it to the Central Portal with automatic publishing, waits until the deployment is `PUBLISHED`, then creates the GitHub Release from the `CHANGELOG.md` section. If a later step fails after `PUBLISHED`, wait until `https://repo1.maven.org/maven2/page/poli/poli-page-spring-boot-starter/X.Y.Z/` shows the version (10–30 minutes) before re-running: the re-run then skips the upload and only creates the missing Release. A re-run before that uploads again, and Central fails the duplicate without changing what was published.
 9. Check `https://repo1.maven.org/maven2/page/poli/poli-page-spring-boot-starter/X.Y.Z/` (Central can take 10–30 minutes to sync after `PUBLISHED`).
 
