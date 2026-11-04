@@ -50,6 +50,11 @@ subprojects {
         options.compilerArgs.addAll(listOf("-Xlint:all", "-Xlint:-processing", "-Werror"))
     }
 
+    // Gradle 9 no longer puts the JUnit Platform launcher on the test runtime classpath itself.
+    dependencies {
+        "testRuntimeOnly"("org.junit.platform:junit-platform-launcher")
+    }
+
     tasks.withType<Test>().configureEach {
         useJUnitPlatform()
         testLogging {
