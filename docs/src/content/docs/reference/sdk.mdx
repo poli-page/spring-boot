@@ -1,0 +1,24 @@
+---
+title: SDK
+description: The Java SDK under the Spring Boot starters, page.poli:sdk, and where its documentation lives.
+---
+
+The starters wrap the Poli Page Java SDK, [`page.poli:sdk`](https://github.com/poli-page/sdk-java). The `PoliPageClient` bean, its `render()` and `documents()` facades, their async twins and the exception types are the SDK's own objects, so the SDK's documentation covers every method and type they have.
+
+→ **Java SDK documentation**: https://poli-page.github.io/sdk-java/
+
+## Versions
+
+The starters require `page.poli:sdk` `0.13.x`, the same major.minor as the starters themselves: both share the major.minor of the Poli Page API.
+
+| Starter | SDK | Spring Boot | Java |
+| --- | --- | --- | --- |
+| `0.13.x` | `page.poli:sdk` `0.13.x` | `3.2.x`, `3.3.x`, `3.4.x` | `17`, `21` |
+
+Spring Boot 2.x (the `javax.*` namespace) is not supported. Maintenance follows the Spring Boot upstream support window: new majors land within one minor of the upstream release.
+
+## Where to look
+
+- Render input, render methods and stored documents: the SDK's [Quick start](https://poli-page.github.io/sdk-java/getting-started/quick-start/) and [Output handling](https://poli-page.github.io/sdk-java/concepts/output-handling/) pages.
+- Retries, timeouts and cancellation: the SDK's [Retries and idempotency](https://poli-page.github.io/sdk-java/production/retries-and-idempotency/) page.
+- Every error code: the SDK's [Errors](https://poli-page.github.io/sdk-java/production/errors/) page.

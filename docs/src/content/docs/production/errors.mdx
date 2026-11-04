@@ -1,0 +1,127 @@
+---
+title: Errors
+description: How SDK errors surface in Spring Boot - the default error handler, its status mapping, replacing it, and catching PoliPageException yourself.
+---
+
+The SDK throws `page.poli.sdk.exception.PoliPageException`, or a subclass from its sealed hierarchy, when a call fails. Both starters register a default error handler that answers such an error as JSON, so a controller without a `try` block still returns a useful body.
+
+## The error
+
+You can catch the SDK's exceptions in your own code. These are the categories you usually tell apart:
+
+- **Auth.** `PoliPageAuthException` (HTTP 401 or 403). An invalid or missing API key (`INVALID_API_KEY`, `MISSING_API_KEY`), a protected environment (`ENVIRONMENT_PROTECTED`), or an organization in payment grace (`ORGANIZATION_PAYMENT_GRACE`).
+- **Rate limit.** `PoliPageRateLimitException` (HTTP 429). Back off for `retryAfter()`.
+- **Request rejected.** `PoliPageValidationException` (400 or 422), `PoliPageNotFoundException` (404, for example `TEMPLATE_NOT_FOUND` or `PROJECT_NOT_IN_ENVIRONMENT`), and `PoliPageGoneException` (410 `DOCUMENT_GONE`). Template, data or document lifecycle errors.
+- **Network or transport.** `PoliPageNetworkException`, with no HTTP status. A connection failure, DNS, TLS or a timeout.
+- **Bad answer or local write.** A plain `PoliPageException`: match on `code()`. `PoliPageErrorCode.INVALID_RESPONSE` (`invalid_response`) is a 2xx answer whose body is not JSON. `statusCode()` keeps the 2xx, and `toPayload()` answers `502`. `PoliPageErrorCode.IO_ERROR` (`io_error`) means `renderToFile` could not write the target, with the `IOException` as `getCause()`. Neither is retried.
+
+Match exhaustively against the sealed hierarchy:
+
+```java
+try {
+    byte[] pdf = client.render().pdf(input);
+} catch (PoliPageAuthException e) {
+    // re-check POLI_PAGE_API_KEY
+    throw e;
+} catch (PoliPageRateLimitException e) {
+    // honour e.retryAfter()
+    throw e;
+} catch (PoliPageValidationException e) {
+    // surface e.code() to the user
+    throw e;
+} catch (PoliPageNetworkException e) {
+    // network or timeout: safe to retry the whole request
+    throw e;
+} catch (PoliPageException e) {
+    // anything else from the SDK (5xx)
+    throw e;
+}
+```
+
+`PoliPageErrorEvent` fires for terminal failures in addition to the throw, so you can wire global alerting through a single `@EventListener` without per-controller code. See [Observability](../observability/).
+
+## What the default handler answers
+
+The handler is a `@RestControllerAdvice`: `PoliPageWebMvcExceptionHandler` in MVC and `PoliPageWebFluxExceptionHandler` in WebFlux. Both extend `page.poli.sdk.spring.PoliPageExceptionHandler`. It answers any `PoliPageException` an annotated controller throws, or a `Mono` or `CompletableFuture` fails with, as JSON. The body is the SDK's `toPayload()`, exactly:
+
+```json
+{ "code": "TEMPLATE_NOT_FOUND", "message": "Template 'does-not-exist' not found in project 'getting-started'.", "status": 404, "requestId": "req_…" }
+```
+
+- **Status.** The HTTP status is the payload's `status`: the API's status, `503` for `network_error`, `504` for `timeout`, and `502` for `invalid_response` (a 2xx answer whose body is not JSON, such as a proxy's HTML page). An error with no status, for example `aborted`, or `io_error` when `renderToFile` cannot write the file, answers `500` with `"status": null` in the body.
+- **Request ID.** `requestId` is the API's `x-request-id`, or `null` when unknown. The `null` fields stay in the body even with `spring.jackson.default-property-inclusion=non_null`. A Jackson module, `PoliPageErrorPayloadModule`, keeps them. Spring Boot adds it to the `ObjectMapper` it builds. If you declare your own `ObjectMapper` bean, build it from Boot's `Jackson2ObjectMapperBuilder` or register the module on it.
+- **Content type.** `Content-Type: application/json`. In MVC, the handler first removes the content headers already on the response (`Content-Disposition`, `Content-Length`, `Content-Encoding`, `Content-Range`, `Content-Language` and `Content-Type`) and keeps the others, so the error is not saved as a PDF. This happens, for example, when the first read of a `PoliPageResponses.stream` PDF fails. WebFlux clears the content headers before it runs an `@ExceptionHandler`.
+- **A partial download.** In MVC, when part of the PDF was already sent, the handler writes nothing and rethrows the error. Tomcat and Jetty then close the connection, so the client sees a truncated download. Undertow ends the response normally, so the PDF is cut short with no error signal. JSON is never appended to the PDF.
+- **Logging.** Each answered error is logged on `page.poli.sdk.spring.PoliPageExceptionHandler`: `ERROR` for a 5xx or no status, `WARN` otherwise, with the code, status, request ID and message, never the API key. In MVC, an error after part of the PDF was sent also gets one `WARN` line from `PoliPageWebMvcExceptionHandler`. The servlet container logs the rethrown error itself.
+- **Scope.** Like any `@ControllerAdvice`, it covers annotated controllers only. Errors from servlet filters, `WebFilter`s or functional `RouterFunction` endpoints do not reach it.
+
+## Handle errors yourself
+
+The handler is on by default. Turn it off with:
+
+```yaml
+poli-page:
+  error-handler:
+    enabled: false
+```
+
+It has the lowest precedence (`Ordered.LOWEST_PRECEDENCE`). Spring answers an exception with the first `@ControllerAdvice`, in order, that has any matching `@ExceptionHandler`, not with the most specific one across advices. So any advice of yours that handles `PoliPageException` or a supertype (`Exception`, `RuntimeException`), ordered or not, normally answers SDK errors instead of the default handler.
+
+If you have such a catch-all and want to keep the SDK answer, handle `PoliPageException` in an advice ordered before it and delegate to the starter's handler. The injected `PoliPageExceptionHandler` is the handler of your stack, so this works in MVC and WebFlux alike. In MVC it also removes the PDF headers already on the response and never appends JSON to a response already sent:
+
+```java
+@RestControllerAdvice
+@Order(Ordered.HIGHEST_PRECEDENCE)
+class PoliPageErrors {
+    private final PoliPageExceptionHandler poliPage;
+
+    PoliPageErrors(PoliPageExceptionHandler poliPage) {
+        this.poliPage = poliPage;
+    }
+
+    @ExceptionHandler(PoliPageException.class)
+    ResponseEntity<ErrorPayload> handle(PoliPageException e) {
+        return poliPage.handlePoliPageException(e);
+    }
+}
+```
+
+Building your own answer from `e.toPayload()` instead skips that MVC clean-up.
+
+Declaring your own `PoliPageExceptionHandler` bean replaces the default one. `PoliPageExceptionHandler` is abstract and not an advice itself, so the replacement must be a `@ControllerAdvice`, for example a subclass of `PoliPageWebMvcExceptionHandler` or `PoliPageWebFluxExceptionHandler`. A bean of this type that is not an advice leaves SDK errors unhandled.
+
+In MVC, a subclass of `PoliPageWebMvcExceptionHandler` overrides the two-argument `handlePoliPageException(ex, response)`. Spring dispatches `@ExceptionHandler` requests to that method only, so an override of the one-argument `handlePoliPageException(ex)` is not called for them. It still runs when your own advice calls it, and it forwards to the two-argument method.
+
+## Example
+
+```java
+@RestController
+public class StatementController {
+
+    private final PoliPageClient client;
+    private final PoliPageResponses responses;
+
+    public StatementController(PoliPageClient client, PoliPageResponses responses) {
+        this.client = client;
+        this.responses = responses;
+    }
+
+    // A PoliPageException thrown here is answered by the default error handler:
+    // {"code":"...","message":"...","status":404,"requestId":"..."}
+    @GetMapping("/statements/{id}.pdf")
+    public ResponseEntity<byte[]> statement(@PathVariable String id) {
+        byte[] pdf = client.render().pdf(RenderInput.builder()
+            .project("billing")
+            .template("statement")
+            .data(Map.of("statementId", id))
+            .build());
+        return responses.bytes(pdf, "statement-" + id + ".pdf");
+    }
+}
+```
+
+## See also
+
+- [Configuration](../../concepts/configuration/)
+- [Observability](../observability/)
+- [Testing](../testing/)

@@ -36,3 +36,8 @@ target/
 CLAUDE.md
 docs/plan/
 docs/spec/
+
+# Docs site
+docs/node_modules/
+docs/dist/
+docs/.astro/

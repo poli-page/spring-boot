@@ -1,0 +1,212 @@
+---
+title: Actuator
+description: Expose Poli Page reachability on /actuator/health and publish three Micrometer meters for retries and errors, with Prometheus and alerting examples.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Spring Boot Actuator is the usual surface for "is this service healthy?". The starter contributes a `HealthIndicator` named `poliPage` and a Micrometer `MeterBinder` that registers three meters with bounded tag cardinality. Both are conditional: they need Actuator or Micrometer on the classpath and stay on until you switch them off, so they cost nothing if you do not use them.
+
+The health indicator calls a dedicated lightweight endpoint, `GET /v1/health`, which is unauthenticated. It never calls `render(...)`, because that would spend your API quota on every Kubernetes readiness check.
+
+## Health indicator
+
+Add Actuator if your app does not have it yet:
+
+```kotlin
+// build.gradle.kts
+implementation("org.springframework.boot:spring-boot-starter-actuator")
+```
+
+The auto-configuration then registers `PoliPageHealthIndicator`, gated on `@ConditionalOnClass(HealthIndicator.class)` and on `poli-page.health.enabled`. It resolves `/v1/health` against the host of `poli-page.base-url` (or `https://api.poli.page`), waits at most 2 seconds for the probe, and reports:
+
+- `UP` on HTTP `200`, with the `baseUrl` detail set to the host name.
+- `DOWN` on any other status, with the status code in the `status` detail.
+- `DOWN` on a transport failure, with the exception captured.
+
+`GET /actuator/health` then returns:
+
+```json
+{
+  "status": "UP",
+  "components": {
+    "poliPage": {
+      "status": "UP",
+      "details": {
+        "baseUrl": "api.poli.page"
+      }
+    },
+    "diskSpace": { "status": "UP" },
+    "ping": { "status": "UP" }
+  }
+}
+```
+
+When Poli Page is unreachable, the component is `DOWN`:
+
+```json
+{
+  "status": "DOWN",
+  "components": {
+    "poliPage": {
+      "status": "DOWN",
+      "details": {
+        "error": "java.net.ConnectException: Connection refused"
+      }
+    }
+  }
+}
+```
+
+### Health groups
+
+If Poli Page is down, your app is still alive: the dependency only degrades. So put `poliPage` in the `readiness` group, which takes a failing pod out of the load balancer, and keep it out of `liveness`, so Kubernetes does not restart pods because of a flaky dependency:
+
+```yaml
+management:
+  endpoint:
+    health:
+      show-details: when_authorized
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState, poliPage
+```
+
+Adjust the groups to your operational model.
+
+### Disable the health indicator
+
+There are two ways. The first removes the bean:
+
+```yaml
+poli-page:
+  health:
+    enabled: false
+```
+
+The second uses Spring's standard switch for one health contributor:
+
+```yaml
+management:
+  health:
+    poliPage:
+      enabled: false
+```
+
+Either silences the `poliPage` component. `@ConditionalOnProperty("poli-page.health.enabled", matchIfMissing = true)` handles the first, and Spring Boot's `HealthContributorAutoConfiguration` the second.
+
+## Metrics
+
+Adding `spring-boot-starter-actuator` pulls in `micrometer-core`. The starter's `PoliPageMetrics` `MeterBinder` then registers three meters, fed by the `PoliPageRetryEvent` and `PoliPageErrorEvent` events of the [event bridge](../../production/observability/):
+
+| Meter | Type | Tags | Recorded |
+| --- | --- | --- | --- |
+| `poli.page.retries.total` | Counter | `attempt`, `reason` | One increment per `PoliPageRetryEvent`. |
+| `poli.page.retries.delay` | Timer | `attempt`, `reason` | The `delay` of each retry. |
+| `poli.page.errors.total` | Counter | `code`, `status_class` | One increment per `PoliPageErrorEvent`. |
+
+Because the meters listen to the events, `poli-page.events.enabled=false` leaves them with nothing to count.
+
+### Tag cardinality
+
+`reason` is one of four SDK-defined values: `5xx`, `rate_limit`, `timeout`, `network_error`. `code` is one of the SDK's error codes (`PoliPageErrorCode`, or a code the API sends). `status_class` is one of four buckets:
+
+| `status_class` | Errors |
+| --- | --- |
+| `4xx` / `5xx` | The API answered with that status. Any other status an error carries is `5xx`, an unexpected answer from the server side: `invalid_response` (a 2xx answer whose body is not JSON, answered `502` by the error handler), or a 3xx, since the SDK does not follow redirects. |
+| `network` | The API or the PDF storage could not be reached or did not answer in time: `network_error`, `timeout`, and `DOWNLOAD_FAILED` whatever the storage status. |
+| `local` | Any other error with no HTTP status at all, raised in your process: `io_error` (the PDF file could not be written, for example on a full disk), `aborted`, `invalid_options`. |
+
+`attempt` is bounded by `maxRetries + 1`, which is 3 by default and at most 11. The full cardinality is small and stable, so it is safe for Prometheus.
+
+### Prometheus
+
+Add the Prometheus registry:
+
+```kotlin
+implementation("io.micrometer:micrometer-registry-prometheus")
+```
+
+Spring Boot wires `/actuator/prometheus` for you. Scraping it yields:
+
+```text
+# HELP poli_page_retries_total
+# TYPE poli_page_retries_total counter
+poli_page_retries_total{application="my-app",attempt="1",reason="5xx"} 3.0
+poli_page_retries_total{application="my-app",attempt="2",reason="5xx"} 1.0
+
+# HELP poli_page_errors_total
+# TYPE poli_page_errors_total counter
+poli_page_errors_total{application="my-app",code="rate_limited",status_class="4xx"} 2.0
+```
+
+### Disable the metrics
+
+```yaml
+poli-page:
+  metrics:
+    enabled: false
+```
+
+The `MeterBinder` is then not registered and no `poli.page.*` meter is published.
+
+## Dashboards and alerts
+
+Useful PromQL queries for a Poli Page dashboard:
+
+```text
+# Retry rate by reason (last 5 minutes)
+sum by (reason) (rate(poli_page_retries_total[5m]))
+
+# Error rate by status class
+sum by (status_class) (rate(poli_page_errors_total[5m]))
+
+# 95th percentile retry delay (across all reasons)
+histogram_quantile(0.95, sum by (le) (rate(poli_page_retries_delay_seconds_bucket[5m])))
+```
+
+A reasonable starting policy: scrape `/actuator/health` with Prometheus's HTTP probe and alert on `probe_success == 0 for 5m` (the API has been unreachable long enough to be more than a blip), plus `rate(poli_page_errors_total{status_class="5xx"}[10m]) > 0.5` (sustained 5xx).
+
+## Gotchas
+
+- **The health endpoint hits a real network resource.** With a 2-second timeout per probe, a cluster that runs aggressive readiness checks puts noticeable load on the Poli Page edge, and a flapping network between your app and the API flips the status. Use the `readiness` group, not `liveness`.
+- **`show-details` hides the error.** Production endpoints usually run with `management.endpoint.health.show-details: when_authorized`, so the `details.error` field only shows for authenticated callers. Make sure the operator dashboard authenticates.
+- **There is no `up` gauge.** A `poli.page.client.up` gauge would force a poll of `/v1/health` on every Prometheus scrape, or a `@Scheduled` cache refresh. Get the up or down signal by probing `/actuator/health` over HTTP.
+- **Do not add tags downstream.** A custom `@EventListener` that adds `documentId` or a template slug as a tag explodes Prometheus's storage.
+- **Health and metrics are independent.** `poli-page.health.enabled=false` does not disable metrics, and `poli-page.metrics.enabled=false` does not disable health.
+
+<Aside type="note">
+The probe resolves `/v1/health` against the host of `poli-page.base-url`, so a path prefix on a custom base URL is not kept for the probe.
+</Aside>
+
+## Example
+
+```yaml
+# application.yml
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+      group:
+        readiness:
+          include: readinessState, poliPage
+
+poli-page:
+  api-key: ${POLI_PAGE_API_KEY}
+  health:
+    enabled: true
+  metrics:
+    enabled: true
+```
+
+## See also
+
+- [Observability](../../production/observability/)
+- [Configuration](../configuration/)
+- [Client access](../client-access/)

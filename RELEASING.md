@@ -38,7 +38,7 @@ On 2026-10-30 none of the three artifact names existed on Maven Central (`https:
 
 1. Set `version` in `gradle.properties` (no `-SNAPSHOT`).
 2. Move `[Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD` in `CHANGELOG.md`, leave an empty `## [Unreleased]` above it, and update the compare links at the bottom.
-3. Update the version in the README install snippets, the README compatibility table, `docs/webflux.md` and the two `v…` labels in each example app's `DemoController`.
+3. Update the version in the README install snippets, the README compatibility table, the docs site pages that name the version (`grep -rn 0.13.0 docs/src/content/docs`) and the two `v…` labels in each example app's `DemoController`.
    For a new minor `X.Y`: require `page.poli:sdk:X.Y.Z` in `poli-page-spring-boot-autoconfigure/build.gradle.kts`, pin the API contract's `vX.Y.Z` commit in `.github/workflows/ci.yml` and `.github/workflows/release.yml`, and check both with `.github/scripts/check-release-versions.sh X.Y.Z` (it needs network access to list the contract's tags).
 4. Merge `chore: release X.Y.Z` to `main` and wait for CI to go green.
 5. Optional local check, which uploads nothing: build the bundle and check its contents.

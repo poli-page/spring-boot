@@ -50,6 +50,9 @@ reviews:
     - "!.gradle/**"
     - "!gradle/wrapper/gradle-wrapper.jar"
     - "!**/*.lockfile"
+    # The docs site vendors the shared preset and its lock file: reviewed upstream, not here.
+    - "!docs/src/preset/**"
+    - "!docs/package-lock.json"
   path_instructions:
     - path: "poli-page-spring-boot-autoconfigure/src/main/**"
       instructions: >-

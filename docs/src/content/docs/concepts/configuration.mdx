@@ -1,0 +1,177 @@
+---
+title: Configuration
+description: Every poli-page.* property the starter binds, its default and validation, relaxed binding, per-profile overrides and how to keep the API key out of source.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+You configure the starter only through Spring Boot's `@ConfigurationProperties` mechanism, under the `poli-page.*` prefix. There is no `init()` to call and no builder to construct: you set `poli-page.api-key` and the auto-configuration produces a `PoliPageClient` bean. Every other option tunes that bean, and an option you leave unset falls through to the SDK's own default, so a later SDK release that changes a default takes effect without a starter upgrade.
+
+## Options
+
+The properties bind to the `PoliPageProperties` record in `poli-page-spring-boot-autoconfigure`.
+
+| Property | Type | Default | Description |
+| --- | --- | --- | --- |
+| `poli-page.api-key` | `String` | required | The API key, `pp_{env}_{32 hex}` (`pp_sandbox_…`, `pp_live_…`, `pp_staging_…`). The key selects the environment. A missing or blank key fails startup. Any other value starts the app, with one warning when it does not look like a key. |
+| `poli-page.base-url` | `URI` | SDK default (`https://api.poli.page`) | Overrides the API origin, for staging or self-hosted deployments. Must be absolute. |
+| `poli-page.request-timeout` | `Duration` | SDK default (60 s) | Per-attempt request timeout. Between 1 s and 10 min. |
+| `poli-page.retries.max-attempts` | `Integer` | SDK default (2) | Retries on top of the initial request. `0` disables retries. Between 0 and 10. |
+| `poli-page.retries.delay` | `Duration` | SDK default (500 ms) | Base delay for the exponential backoff. Jitter and `Retry-After` capping happen inside the SDK. Between 0 s and 30 s. |
+| `poli-page.health.enabled` | `boolean` | `true` | Registers the Actuator `HealthIndicator` that probes `/v1/health`. |
+| `poli-page.metrics.enabled` | `boolean` | `true` | Registers the Micrometer `MeterBinder` (retry and error counters, retry timer). |
+| `poli-page.events.enabled` | `boolean` | `true` | Publishes `PoliPageRetryEvent` and `PoliPageErrorEvent` through `ApplicationEventPublisher`. |
+| `poli-page.error-handler.enabled` | `boolean` | `true` | Registers the default error handler, which answers an SDK error with its `toPayload()` body. See [Errors](../../production/errors/). |
+
+The whole surface, as the record declares it:
+
+```java
+@ConfigurationProperties("poli-page")
+@Validated
+public record PoliPageProperties(
+    @NotBlank String apiKey,
+    @Nullable URI baseUrl,
+    @Nullable @DurationRange(minMillis = 1_000L, maxMillis = 600_000L) Duration requestTimeout,
+    @Valid @DefaultValue Retries retries,
+    @Valid @DefaultValue Health health,
+    @Valid @DefaultValue Metrics metrics,
+    @Valid @DefaultValue Events events,
+    @Valid @DefaultValue ErrorHandler errorHandler) {
+
+  public record Retries(
+      @Nullable @Min(0) @Max(10) Integer maxAttempts,
+      @Nullable @DurationRange(minMillis = 0L, maxMillis = 30_000L) Duration delay) {}
+
+  public record Health(@DefaultValue("true") boolean enabled) {}
+  public record Metrics(@DefaultValue("true") boolean enabled) {}
+  public record Events(@DefaultValue("true") boolean enabled) {}
+  public record ErrorHandler(@DefaultValue("true") boolean enabled) {}
+}
+```
+
+Every option except `api-key` is nullable. The auto-configuration checks each one for `null` and calls the matching `PoliPageClient.Builder` setter only when it is set, which is how unset options reach the SDK's defaults.
+
+## Relaxed binding and environment variables
+
+Spring Boot's relaxed binding lets one property surface under several spellings:
+
+- `POLI_PAGE_API_KEY` (environment variable) maps to `poli-page.api-key` (YAML) and `poliPage.apiKey` (Java property).
+- `POLI_PAGE_RETRIES_MAX_ATTEMPTS` maps to `poli-page.retries.max-attempts` and `poliPage.retries.maxAttempts`.
+
+Use whichever spelling is idiomatic for the source. Deployment platforms such as Heroku, Cloud Run and ECS inject environment variables, while `application.yml` lives in source. Stick with UPPER_SNAKE_CASE for environment variables: Linux environment variables are case-sensitive, Windows ones are not.
+
+## Validation
+
+The record is validated at startup with Jakarta Bean Validation. Bad input fails the boot with a `BindValidationException`, not at the first call:
+
+```text
+***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+
+Binding to target [Bindable@... type = page.poli.sdk.spring.PoliPageProperties] failed:
+
+    Property: poli-page.api-key
+    Value: ""
+    Origin: System Environment Property "POLI_PAGE_API_KEY"
+    Reason: must not be blank
+
+Action:
+
+Update your application's configuration
+```
+
+The other rejections:
+
+- `request-timeout: 0s` fails the `DurationRange` check ("must be a Duration between 1000 ms and 600000 ms").
+- `request-timeout: 700s` fails the same check, because 700000 ms is over the upper bound of 600000 ms.
+- `retries.max-attempts: -1` fails `Min`, and `retries.max-attempts: 11` fails `Max`.
+
+`@DurationRange` is shipped by the starter, in `page.poli.sdk.spring.validation`, because Spring Boot has no Duration-range constraint. It takes `minMillis` and `maxMillis`, so any unit you write in `application.yml` (`s`, `m`, `h`) is honored consistently.
+
+### Key format warning
+
+The API is the only authority on keys, so the starter never rejects a non-blank key. When it builds the client bean, it compares the key with the SDK contract's full-key regex:
+
+```text
+^pp_(?=[a-z][a-z0-9-]{0,19}_)[a-z][a-z0-9]*(?:-[a-z0-9]+)*_[0-9a-f]{32}$
+```
+
+A key that does not match (for example `pp_sandbox_x`, `pp_Sandbox_…`, an environment name of 21 characters, or a dashboard token such as `sk_live_…`) logs exactly one warning, and the app starts anyway:
+
+```text
+WARN  page.poli.sdk.spring.PoliPageAutoConfiguration : Poli Page API key does not match the expected format pp_{environment}_{32 lowercase hex characters}; starting anyway, the API decides whether it is valid.
+```
+
+The warning shows no part of the key, not even the `pp_{env}_` prefix, because a mis-pasted secret fragment can look like a valid environment name. The first call then fails with the API's answer: `401 INVALID_API_KEY`, or `401 MISSING_API_KEY` for a value without `pp_`.
+
+## Profiles
+
+Spring Boot's profile mechanism merges the files, so a profile overlays the defaults:
+
+```yaml
+# application.yml (defaults)
+poli-page:
+  api-key: ${POLI_PAGE_API_KEY}
+
+# application-staging.yml (SPRING_PROFILES_ACTIVE=staging)
+poli-page:
+  api-key: ${POLI_PAGE_STAGING_API_KEY}   # a pp_staging_… key: the key selects the environment
+  request-timeout: 30s
+
+# application-prod.yml
+poli-page:
+  request-timeout: 90s
+  retries:
+    max-attempts: 4
+```
+
+## Keep the API key out of the repository
+
+The key is sensitive. Never commit it. Three options, in increasing operational weight:
+
+1. **Environment variable.** Export `POLI_PAGE_API_KEY=pp_live_…` and reference it in `application.yml` with `api-key: ${POLI_PAGE_API_KEY}`. This is the 12-factor default.
+2. **A local profile.** Put the key in an `application-local.yml` that is not under version control, add that file to `.gitignore`, and activate it with `SPRING_PROFILES_ACTIVE=local` during development.
+3. **A secret store.** Use the mechanism your platform already provides: Spring Cloud Config, Vault, AWS Secrets Manager or GCP Secret Manager. Any of them can resolve `poli-page.api-key` before the binding happens.
+
+## IDE completion
+
+The module ships `META-INF/spring-configuration-metadata.json`, built from the record's Javadoc and a hand-written overlay, so IntelliJ IDEA, VS Code (with the Spring Tools extension) and Eclipse STS suggest `poli-page.*` keys with their types, defaults and descriptions. No plugin is needed.
+
+## Gotchas
+
+<Aside type="caution">
+`base-url` must be absolute. The SDK builder rejects a relative URI such as `/v1` with an `IllegalArgumentException` ("baseUrl must be absolute, got: …"), and the application context fails when the client bean is built. The health indicator also resolves `/v1/health` against the host of this URL, so a path prefix is not kept for the probe.
+</Aside>
+
+- **The toggles are opt-out.** `poli-page.health.enabled`, `poli-page.metrics.enabled`, `poli-page.events.enabled` and `poli-page.error-handler.enabled` default to `true`. Omitting one is the same as `true`. Set it to `false` to drop the matching bean.
+- **Properties are read once.** The auto-configuration binds `PoliPageProperties` at startup. Spring Cloud Config's `@RefreshScope` is not wired, so changing `api-key` at runtime needs a restart.
+
+## Example
+
+```yaml
+# application.yml
+poli-page:
+  api-key: ${POLI_PAGE_API_KEY}
+  base-url: https://api.poli.page
+  request-timeout: 30s
+  retries:
+    max-attempts: 4
+    delay: 750ms
+  health:
+    enabled: true
+  metrics:
+    enabled: true
+  events:
+    enabled: true
+  error-handler:
+    enabled: true
+```
+
+## See also
+
+- [Client access](../client-access/)
+- [Errors](../../production/errors/)
+- [API reference](../../reference/api/)
