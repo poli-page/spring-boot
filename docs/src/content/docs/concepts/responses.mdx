@@ -63,14 +63,14 @@ The helper does not use Spring's `ContentDisposition.filename(name, UTF_8)`. Tha
 `Render.pdf(...)` returns a `byte[]`, which is fine for a one-page invoice and wasteful for a 50-page report. `Render.pdfStream(...)` returns an `InputStream` that reads from the presigned URL on demand, and `stream(inputStream, filename)` adapts it to a `ResponseEntity<StreamingResponseBody>` with the same PDF headers. Bytes flow from the SDK to the client in chunks, without sitting in the heap. Use it when buffering a large PDF would risk running out of memory, or when you want to start flushing bytes early.
 
 ```java
-@GetMapping("/accounts/{id}/statement.pdf")
-public ResponseEntity<StreamingResponseBody> statement(@PathVariable String id) {
+@GetMapping("/invoices/{id}.pdf")
+public ResponseEntity<StreamingResponseBody> invoice(@PathVariable String id) {
     InputStream stream = client.render().pdfStream(RenderInput.builder()
-        .project("statements")
-        .template("monthly")
-        .data(Map.of("accountId", id))
+        .project("billing")
+        .template("invoice")
+        .data(Map.of("invoiceNumber", id))
         .build());
-    return responses.stream(stream, "statement-" + id + ".pdf");
+    return responses.stream(stream, "invoice-" + id + ".pdf");
 }
 ```
 

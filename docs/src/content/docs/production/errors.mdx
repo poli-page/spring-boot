@@ -45,7 +45,7 @@ try {
 The handler is a `@RestControllerAdvice`: `PoliPageWebMvcExceptionHandler` in MVC and `PoliPageWebFluxExceptionHandler` in WebFlux. Both extend `page.poli.sdk.spring.PoliPageExceptionHandler`. It answers any `PoliPageException` an annotated controller throws, or a `Mono` or `CompletableFuture` fails with, as JSON. The body is the SDK's `toPayload()`, exactly:
 
 ```json
-{ "code": "TEMPLATE_NOT_FOUND", "message": "Template 'does-not-exist' not found in project 'getting-started'.", "status": 404, "requestId": "req_…" }
+{ "code": "TEMPLATE_NOT_FOUND", "message": "Template 'does-not-exist' not found in project 'billing'.", "status": 404, "requestId": "req_…" }
 ```
 
 - **Status.** The HTTP status is the payload's `status`: the API's status, `503` for `network_error`, `504` for `timeout`, and `502` for `invalid_response` (a 2xx answer whose body is not JSON, such as a proxy's HTML page). An error with no status, for example `aborted`, or `io_error` when `renderToFile` cannot write the file, answers `500` with `"status": null` in the body.
@@ -96,26 +96,26 @@ In MVC, a subclass of `PoliPageWebMvcExceptionHandler` overrides the two-argumen
 
 ```java
 @RestController
-public class StatementController {
+public class InvoiceController {
 
     private final PoliPageClient client;
     private final PoliPageResponses responses;
 
-    public StatementController(PoliPageClient client, PoliPageResponses responses) {
+    public InvoiceController(PoliPageClient client, PoliPageResponses responses) {
         this.client = client;
         this.responses = responses;
     }
 
     // A PoliPageException thrown here is answered by the default error handler:
     // {"code":"...","message":"...","status":404,"requestId":"..."}
-    @GetMapping("/statements/{id}.pdf")
-    public ResponseEntity<byte[]> statement(@PathVariable String id) {
+    @GetMapping("/invoices/{id}.pdf")
+    public ResponseEntity<byte[]> invoice(@PathVariable String id) {
         byte[] pdf = client.render().pdf(RenderInput.builder()
             .project("billing")
-            .template("statement")
-            .data(Map.of("statementId", id))
+            .template("invoice")
+            .data(Map.of("invoiceNumber", id))
             .build());
-        return responses.bytes(pdf, "statement-" + id + ".pdf");
+        return responses.bytes(pdf, "invoice-" + id + ".pdf");
     }
 }
 ```

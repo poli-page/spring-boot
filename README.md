@@ -11,7 +11,7 @@
 
 > Render Poli Page documents as Spring Boot controller responses.
 
-→ **Documentation**: <https://poli-page.github.io/spring-boot/>
+→ **Documentation**: https://poli-page.github.io/spring-boot/
 
 ## About
 

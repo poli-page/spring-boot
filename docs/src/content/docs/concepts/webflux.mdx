@@ -47,15 +47,15 @@ The headers are the same as the MVC variant's (see [Responses](../responses/)): 
 For a large PDF, `stream(future, filename, inline)` takes the `CompletableFuture<InputStream>` that `renderAsync().pdfStream(...)` returns, and answers a `Mono<ResponseEntity<Flux<DataBuffer>>>`. It reads the stream with `DataBufferUtils.readInputStream(...)` in 8 KB buffers, into the `DataBufferFactory` it was built with:
 
 ```java
-@GetMapping("/accounts/{id}/statement.pdf")
-public Mono<ResponseEntity<Flux<DataBuffer>>> statement(@PathVariable String id) {
+@GetMapping("/invoices/{id}.pdf")
+public Mono<ResponseEntity<Flux<DataBuffer>>> invoice(@PathVariable String id) {
     CompletableFuture<InputStream> future = client.renderAsync().pdfStream(RenderInput.builder()
-        .project("statements")
-        .template("monthly")
-        .data(Map.of("accountId", id))
+        .project("billing")
+        .template("invoice")
+        .data(Map.of("invoiceNumber", id))
         .build());
 
-    return responses.stream(future, "statement-" + id + ".pdf", false);
+    return responses.stream(future, "invoice-" + id + ".pdf", false);
 }
 ```
 
@@ -88,13 +88,13 @@ public Mono<ResponseEntity<byte[]>> report(@PathVariable String id) {
     return Mono.zip(account, txns)
         .flatMap(tuple -> {
             CompletableFuture<byte[]> pdf = client.renderAsync().pdf(RenderInput.builder()
-                .project("reports")
-                .template("monthly")
+                .project("billing")
+                .template("invoice")
                 .data(Map.of(
                     "account", tuple.getT1(),
                     "transactions", tuple.getT2()))
                 .build());
-            return responses.bytes(pdf, "report-" + id + ".pdf");
+            return responses.bytes(pdf, "invoice-" + id + ".pdf");
         });
 }
 ```
@@ -113,14 +113,14 @@ public class PoliPageRoutes {
     RouterFunction<ServerResponse> routes(
             PoliPageClient client,
             PoliPageReactiveResponses responses) {
-        return route(GET("/welcome.pdf"), req -> {
+        return route(GET("/invoice.pdf"), req -> {
             CompletableFuture<byte[]> pdf = client.renderAsync().pdf(RenderInput.builder()
-                .project("getting-started")
-                .template("welcome")
-                .data(Map.of("name", req.queryParam("name").orElse("World")))
+                .project("billing")
+                .template("invoice")
+                .data(Map.of("invoiceNumber", req.queryParam("number").orElse("INV-1")))
                 .build());
 
-            return responses.bytes(pdf, "welcome.pdf")
+            return responses.bytes(pdf, "invoice.pdf")
                 .flatMap(entity -> ServerResponse.status(entity.getStatusCode())
                     .headers(h -> h.putAll(entity.getHeaders()))
                     .bodyValue(entity.getBody()));
