@@ -17,7 +17,7 @@ The properties bind to the `PoliPageProperties` record in `poli-page-spring-boot
 | `poli-page.base-url` | `URI` | SDK default (`https://api.poli.page`) | Overrides the API origin, for staging or self-hosted deployments. Must be absolute. |
 | `poli-page.request-timeout` | `Duration` | SDK default (60 s) | Per-attempt request timeout. Between 1 s and 10 min. |
 | `poli-page.retries.max-attempts` | `Integer` | SDK default (2) | Retries on top of the initial request. `0` disables retries. Between 0 and 10. |
-| `poli-page.retries.delay` | `Duration` | SDK default (500 ms) | Base delay for the exponential backoff. Jitter and `Retry-After` capping happen inside the SDK. Between 0 s and 30 s. |
+| `poli-page.retries.delay` | `Duration` | SDK default (500 ms) | Base delay for the exponential backoff. Jitter and `Retry-After` capping happen inside the SDK. The starter's validation accepts 0 s to 30 s, but the SDK builder rejects `0s` (and negatives): see the note below. |
 | `poli-page.health.enabled` | `boolean` | `true` | Registers the Actuator `HealthIndicator` that probes `/v1/health`. |
 | `poli-page.metrics.enabled` | `boolean` | `true` | Registers the Micrometer `MeterBinder` (retry and error counters, retry timer). |
 | `poli-page.events.enabled` | `boolean` | `true` | Publishes `PoliPageRetryEvent` and `PoliPageErrorEvent` through `ApplicationEventPublisher`. |
@@ -87,6 +87,7 @@ The other rejections:
 
 - `request-timeout: 0s` fails the `DurationRange` check ("must be a Duration between 1000 ms and 600000 ms").
 - `request-timeout: 700s` fails the same check, because 700000 ms is over the upper bound of 600000 ms.
+- `retries.delay: 0s` passes the binding, because the starter's range starts at 0, but the SDK's `retryDelay` must be positive. The context then fails when the `PoliPageClient` bean is built, with an `IllegalArgumentException` ("retryDelay must be positive, got: PT0S"). Use a value between 1 ms and 30 s.
 - `retries.max-attempts: -1` fails `Min`, and `retries.max-attempts: 11` fails `Max`.
 
 `@DurationRange` is shipped by the starter, in `page.poli.sdk.spring.validation`, because Spring Boot has no Duration-range constraint. It takes `minMillis` and `maxMillis`, so any unit you write in `application.yml` (`s`, `m`, `h`) is honored consistently.

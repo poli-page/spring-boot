@@ -80,6 +80,8 @@ jobs:
           files: poli-page-spring-boot-autoconfigure/build/reports/jacoco/test/jacocoTestReport.xml,poli-page-spring-boot-starter/build/reports/jacoco/test/jacocoTestReport.xml,poli-page-spring-boot-starter-webflux/build/reports/jacoco/test/jacocoTestReport.xml
           use_oidc: true
           fail_ci_if_error: false
+          # Upload only the files above: the CLI's own search would also find the example apps' reports.
+          disable_search: true
 
   integration:
     runs-on: ubuntu-latest

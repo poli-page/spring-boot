@@ -116,7 +116,7 @@ public class AsyncConfig implements WebMvcConfigurer {
 
 With `setQueueCapacity(0)`, the executor rejects new work when every thread is busy, so a request fails fast instead of queueing without bound.
 
-Spring's default async request timeout is 30 s. A large PDF on a slow connection can exceed it. Raise it globally:
+Spring MVC's async request timeout depends on the servlet container (Tomcat's default is 30 s). A large PDF on a slow connection can exceed it. Raise it globally:
 
 ```yaml
 spring:
@@ -157,7 +157,7 @@ Location: https://documents.poli.page/abc/...?signature=...
 Cache-Control: private, no-store
 ```
 
-The presigned URL has its own expiry (15 minutes). The redirect itself is never cacheable, so an intermediary cannot hand a stale URL to another user.
+The presigned URL has its own short expiry (typically about 15 minutes). The redirect itself is never cacheable, so an intermediary cannot hand a stale URL to another user.
 
 ## Gotchas
 
