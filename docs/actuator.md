@@ -106,7 +106,7 @@ Adding `spring-boot-starter-actuator` automatically pulls in `micrometer-core`. 
 | `poli.page.retries.delay` | Timer | `attempt`, `reason` | Records each retry's `delay` Duration. |
 | `poli.page.errors.total` | Counter | `code`, `status_class` (`4xx`/`5xx`/`network`) | Incremented per `PoliPageErrorEvent`. |
 
-A `poli.page.client.up` gauge was specified in the v0.1 design but deferred to v0.2 — implementing it correctly would require polling `/v1/health` on every Prometheus scrape, or maintaining a `@Scheduled` cache refresh. Operators get the same up/down signal by scraping `/actuator/health` directly via Prometheus's HTTP probe.
+There is no `poli.page.client.up` gauge: implementing it correctly would require polling `/v1/health` on every Prometheus scrape, or maintaining a `@Scheduled` cache refresh. Operators get the same up/down signal by scraping `/actuator/health` directly via Prometheus's HTTP probe.
 
 ### Tag cardinality
 
@@ -174,5 +174,3 @@ A reasonable starting alerting policy: scrape `/actuator/health` via Prometheus'
 
 - [Events](events.md) — the event types that drive the retry and error counters.
 - [Configuration properties](configuration-properties.md) — the `poli-page.health.enabled` and `poli-page.metrics.enabled` toggles.
-- [spec/spring-boot-starter-specification.md §11](spec/spring-boot-starter-specification.md#11-actuator-healthindicator) — HealthIndicator implementation rationale.
-- [spec/spring-boot-starter-specification.md §12](spec/spring-boot-starter-specification.md#12-micrometer-metrics) — meter definitions and tag cardinality discussion.

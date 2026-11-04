@@ -22,9 +22,9 @@ import page.poli.sdk.spring.event.PoliPageRetryEvent;
  * buckets ({@code 4xx} / {@code 5xx} / {@code network}), {@code attempt} is bounded by {@code
  * maxRetries + 1} (max 11). Safe for Prometheus.
  *
- * <p>The {@code poli.page.client.up} gauge specified in v0.1 design has been deferred — it would
- * force a network probe on every Prometheus scrape. Operators get the same signal by scraping
- * {@code /actuator/health} directly via the Prometheus HTTP probe.
+ * <p>There is no {@code poli.page.client.up} gauge: it would force a network probe on every
+ * Prometheus scrape. Operators get the same signal by scraping {@code /actuator/health} directly
+ * via the Prometheus HTTP probe.
  */
 public final class PoliPageMetrics implements MeterBinder {
 
