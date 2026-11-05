@@ -265,12 +265,29 @@ class PoliPageAutoConfigurationTest {
             "poli-page.retries.delay=750ms")
         .run(
             context -> {
-              // Builder doesn't expose its values publicly; the assertion that matters here is
-              // that the context boots cleanly with all properties set. Round-trip behaviour
-              // is covered by the SDK's own builder tests.
               assertThat(context).hasNotFailed();
               assertThat(context).hasSingleBean(PoliPageClient.class);
+              assertThat(clientMaxRetries(context.getBean(PoliPageClient.class))).isEqualTo(4);
             });
+  }
+
+  @Test
+  void deprecatedMaxAttemptsReachesTheBuilderAsMaxRetries() {
+    runner
+        .withPropertyValues("poli-page.api-key=" + SANDBOX_KEY, "poli-page.retries.max-attempts=3")
+        .run(
+            context ->
+                assertThat(clientMaxRetries(context.getBean(PoliPageClient.class))).isEqualTo(3));
+  }
+
+  /** The SDK keeps its resolved options in a package-private record: read them reflectively. */
+  private static int clientMaxRetries(PoliPageClient client) throws ReflectiveOperationException {
+    java.lang.reflect.Field field = PoliPageClient.class.getDeclaredField("options");
+    field.setAccessible(true);
+    Object options = field.get(client);
+    java.lang.reflect.Method accessor = options.getClass().getDeclaredMethod("maxRetries");
+    accessor.setAccessible(true);
+    return (int) accessor.invoke(options);
   }
 
   @Configuration(proxyBeanMethods = false)
