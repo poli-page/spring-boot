@@ -80,26 +80,27 @@ public Mono<ResponseEntity<Void>> download(@PathVariable String id) {
 ## Compose with other reactive sources
 
 ```java
-@GetMapping("/{id}/report.pdf")
-public Mono<ResponseEntity<byte[]>> report(@PathVariable String id) {
-    Mono<Account> account = accountService.findById(id);
-    Mono<List<Transaction>> txns = transactionService.recent(id);
+@GetMapping("/{id}/invoice.pdf")
+public Mono<ResponseEntity<byte[]>> invoice(@PathVariable String id) {
+    Mono<Customer> customer = customerService.findByInvoice(id);
+    Mono<List<LineItem>> lines = lineItemService.forInvoice(id);
 
-    return Mono.zip(account, txns)
+    return Mono.zip(customer, lines)
         .flatMap(tuple -> {
             CompletableFuture<byte[]> pdf = client.renderAsync().pdf(RenderInput.builder()
                 .project("billing")
                 .template("invoice")
                 .data(Map.of(
-                    "account", tuple.getT1(),
-                    "transactions", tuple.getT2()))
+                    "invoiceNumber", id,
+                    "customer", tuple.getT1(),
+                    "lines", tuple.getT2()))
                 .build());
             return responses.bytes(pdf, "invoice-" + id + ".pdf");
         });
 }
 ```
 
-Three concurrent I/Os, and the response is flushed when all three complete, with no thread blocked.
+The two lookups run concurrently, the render starts when both answer, and no thread blocks while it waits.
 
 ## Functional routing
 
