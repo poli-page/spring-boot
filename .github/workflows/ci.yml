@@ -85,6 +85,43 @@ jobs:
           # Upload only the files above: the CLI's own search would also find the example apps' reports.
           disable_search: true
 
+  # Builds the Central bundle the release uploads and runs the release's own check on it, so a
+  # bundle regression (a Gradle or plugin bump that changes the published files) fails here, not
+  # in the publish job. Signed with a throwaway key made for this run: the release key stays in
+  # the maven-central-release environment, and only the bundle's file list is checked.
+  central-bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Central bundle (unsigned)
+        run: |
+          ver="$(sed -n 's/^version=//p' gradle.properties)"
+          ./gradlew --no-daemon --no-build-cache centralBundle
+          .github/scripts/check-central-bundle.sh build/central/central-bundle.zip "$ver" unsigned
+
+      - name: Central bundle (signed with a throwaway key)
+        run: |
+          ver="$(sed -n 's/^version=//p' gradle.properties)"
+          export GNUPGHOME="$RUNNER_TEMP/gnupg"
+          mkdir -m 700 "$GNUPGHOME"
+          pass=ci-throwaway
+          # A sign-only primary key and no subkeys, like the release key.
+          gpg --batch --pinentry-mode loopback --passphrase "$pass" \
+            --quick-gen-key 'Poli Page CI throwaway <ci@invalid>' rsa3072 sign 1d
+          ORG_GRADLE_PROJECT_signingKey="$(gpg --batch --pinentry-mode loopback --passphrase "$pass" --armor --export-secret-keys)"
+          export ORG_GRADLE_PROJECT_signingKey
+          export ORG_GRADLE_PROJECT_signingPassword="$pass"
+          ./gradlew --no-daemon --no-build-cache centralBundle
+          .github/scripts/check-central-bundle.sh build/central/central-bundle.zip "$ver" signed
+
   integration:
     runs-on: ubuntu-latest
     needs: test
