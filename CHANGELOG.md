@@ -4,6 +4,8 @@ All notable changes to `page.poli:poli-page-spring-boot-starter` (and the siblin
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-11-05
+
 ### Added
 - `poli-page.retries.max-retries`: the number of retries after the first attempt (0 to 10), passed to the SDK as `maxRetries`. Env var `POLI_PAGE_RETRIES_MAX_RETRIES`.
 
@@ -55,5 +57,6 @@ First release on Maven Central: `page.poli:poli-page-spring-boot-starter`, `page
 - Requires Java 17+ and Spring Boot 3.2 or newer (Jakarta namespace only; no `javax.*` fallback).
 - WebFlux artifact is opt-in — a single application typically picks one of the two starters, not both.
 
-[Unreleased]: https://github.com/poli-page/spring-boot/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/poli-page/spring-boot/compare/v0.13.1...HEAD
+[0.13.1]: https://github.com/poli-page/spring-boot/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/poli-page/spring-boot/releases/tag/v0.13.0
