@@ -4,7 +4,16 @@ All notable changes to `page.poli:poli-page-spring-boot-starter` (and the siblin
 
 ## [Unreleased]
 
+## [0.13.2] - 2026-11-05
+
+Ships the same changes as 0.13.1, listed under 0.13.1 in CHANGELOG.md.
+
+### Fixed
+- 0.13.1 was tagged but never reached Maven Central: the release's bundle check expected checksum files for the `.asc` signatures, which Gradle 9.7+ no longer publishes and Maven Central does not require, so it stopped the upload. The check now expects signatures without checksums, and CI checks the bundle on every pull request.
+
 ## [0.13.1] - 2026-11-05
+
+Tagged but never published to Maven Central: use 0.13.2.
 
 ### Added
 - `poli-page.retries.max-retries`: the number of retries after the first attempt (0 to 10), passed to the SDK as `maxRetries`. Env var `POLI_PAGE_RETRIES_MAX_RETRIES`.
@@ -57,6 +66,7 @@ First release on Maven Central: `page.poli:poli-page-spring-boot-starter`, `page
 - Requires Java 17+ and Spring Boot 3.2 or newer (Jakarta namespace only; no `javax.*` fallback).
 - WebFlux artifact is opt-in — a single application typically picks one of the two starters, not both.
 
-[Unreleased]: https://github.com/poli-page/spring-boot/compare/v0.13.1...HEAD
+[Unreleased]: https://github.com/poli-page/spring-boot/compare/v0.13.2...HEAD
+[0.13.2]: https://github.com/poli-page/spring-boot/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/poli-page/spring-boot/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/poli-page/spring-boot/releases/tag/v0.13.0
