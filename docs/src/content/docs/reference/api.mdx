@@ -1,0 +1,260 @@
+---
+title: API
+description: The public surface of the Spring Boot starters - the auto-configuration module, the MVC starter and the WebFlux starter - on one page.
+---
+
+The integration ships three Maven artifacts under the `page.poli` group. All three are at version `0.13.0` and require `page.poli:sdk` `0.13.x`. The two starters wrap the same auto-configuration module and differ in the web stack they target.
+
+| Artifact | Package | Brings |
+| --- | --- | --- |
+| `poli-page-spring-boot-autoconfigure` | `page.poli.sdk.spring` | The `PoliPageClient` bean, `PoliPageProperties`, the event bridge, the error handler base, the health indicator and the metrics. `api` dependencies: `page.poli:sdk` and `spring-boot-autoconfigure`. |
+| `poli-page-spring-boot-starter` | `page.poli.sdk.spring.web` | The Spring MVC starter. `api` dependencies: the module above and `spring-boot-starter-web`. |
+| `poli-page-spring-boot-starter-webflux` | `page.poli.sdk.spring.reactive` | The Spring WebFlux starter. `api` dependencies: the module above and `spring-boot-starter-webflux`. |
+
+You add one starter to your build. The module comes with it. The SDK, which holds `PoliPageClient` and the exception types, has its own site: see [SDK](../sdk/).
+
+## Autoconfigure module
+
+### PoliPageAutoConfiguration
+
+`@AutoConfiguration`, `@EnableConfigurationProperties(PoliPageProperties.class)`, `@ConditionalOnClass(PoliPageClient.class)`. Registered in `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`. It registers these beans:
+
+| Bean | Type | Condition |
+| --- | --- | --- |
+| `poliPageClient` | `PoliPageClient` | `@ConditionalOnMissingBean` |
+| `poliPageEventBridge` | `PoliPageEventBridge` | `@ConditionalOnMissingBean`, and `poli-page.events.enabled` not `false` |
+| `poliPage` | `PoliPageHealthIndicator` | `HealthIndicator` on the classpath, `@ConditionalOnMissingBean(name = "poliPage")`, and `poli-page.health.enabled` not `false` |
+| `poliPageMetrics` | `PoliPageMetrics` | `MeterRegistry` on the classpath, `@ConditionalOnMissingBean`, and `poli-page.metrics.enabled` not `false` |
+
+The client bean passes `apiKey` to the SDK builder and calls `baseUrl`, `requestTimeout`, `maxRetries` and `retryDelay` only for the options that are set. When the bridge exists, it also sets `onRetry` and `onError`. After the build, a key that does not match `pp_{environment}_{32 lowercase hex characters}` logs one warning that shows no part of the key.
+
+### PoliPageProperties
+
+```java
+@ConfigurationProperties("poli-page")
+@Validated
+public record PoliPageProperties(
+    @NotBlank String apiKey,
+    @Nullable URI baseUrl,
+    @Nullable @DurationRange(minMillis = 1_000L, maxMillis = 600_000L) Duration requestTimeout,
+    @Valid @DefaultValue Retries retries,
+    @Valid @DefaultValue Health health,
+    @Valid @DefaultValue Metrics metrics,
+    @Valid @DefaultValue Events events,
+    @Valid @DefaultValue ErrorHandler errorHandler) {
+
+  public record Retries(
+      @Nullable @Min(0) @Max(10) Integer maxAttempts,
+      @Nullable @DurationRange(minMillis = 0L, maxMillis = 30_000L) Duration delay) {}
+
+  public record Health(@DefaultValue("true") boolean enabled) {}
+  public record Metrics(@DefaultValue("true") boolean enabled) {}
+  public record Events(@DefaultValue("true") boolean enabled) {}
+  public record ErrorHandler(@DefaultValue("true") boolean enabled) {}
+}
+```
+
+A missing or blank `apiKey` fails the binding with a `BindValidationException`. See [Configuration](../../concepts/configuration/) for every option, its default and its range.
+
+### DurationRange
+
+```java
+@Constraint(validatedBy = DurationRangeValidator.class)
+public @interface DurationRange {
+  long minMillis() default 0L;
+  long maxMillis() default Long.MAX_VALUE;
+  String message() default "must be a Duration between {minMillis} ms and {maxMillis} ms";
+}
+```
+
+A Bean Validation constraint for `Duration` values, in `page.poli.sdk.spring.validation`. It applies to record components, fields and parameters.
+
+### PoliPageEventBridge
+
+```java
+public final class PoliPageEventBridge {
+  public PoliPageEventBridge(ApplicationEventPublisher publisher);
+  public void onRetry(RetryEvent event);
+  public void onError(Throwable cause);
+}
+```
+
+`onRetry` publishes a `PoliPageRetryEvent`. `onError` publishes a `PoliPageErrorEvent` when `cause` is a `PoliPageException` and drops any other `Throwable`. The constructor rejects a `null` publisher.
+
+### PoliPageRetryEvent and PoliPageErrorEvent
+
+```java
+public final class PoliPageRetryEvent extends ApplicationEvent {
+  public PoliPageRetryEvent(Object source, RetryEvent sdkEvent);
+  public RetryEvent sdkEvent();
+}
+
+public final class PoliPageErrorEvent extends ApplicationEvent {
+  public PoliPageErrorEvent(Object source, PoliPageException exception);
+  public PoliPageException exception();
+}
+```
+
+The package is `page.poli.sdk.spring.event`. The SDK's `RetryEvent` is a record with `attempt`, `delay`, `statusCode` and `reason`. Both constructors reject a `null` payload. See [Observability](../../production/observability/).
+
+### PoliPageExceptionHandler
+
+```java
+public abstract class PoliPageExceptionHandler {
+  protected PoliPageExceptionHandler();
+  public ResponseEntity<ErrorPayload> handlePoliPageException(PoliPageException ex);
+}
+```
+
+Answers the SDK's `toPayload()` as JSON, with the payload's `status` as the HTTP status or `500` when the payload has none, and logs it (`ERROR` for a 5xx or no status, `WARN` otherwise). It is not an advice itself. Each starter registers a `@RestControllerAdvice` subclass. See [Errors](../../production/errors/).
+
+### PoliPageErrorHandlerConfiguration and PoliPageErrorPayloadModule
+
+`PoliPageErrorHandlerConfiguration` is a `@Configuration`, active unless `poli-page.error-handler.enabled=false`, imported by both web auto-configurations. It registers a `PoliPageErrorPayloadModule` bean (`@ConditionalOnMissingBean`). The module is a Jackson `SimpleModule` that writes every field of the SDK's `ErrorPayload`, `null` ones included, even when `spring.jackson.default-property-inclusion` is `non_null`.
+
+### PoliPageHealthIndicator
+
+```java
+public final class PoliPageHealthIndicator implements HealthIndicator {
+  public PoliPageHealthIndicator(PoliPageProperties props);
+  public Health health();
+}
+```
+
+Package `page.poli.sdk.spring.actuator`. It sends `GET /v1/health`, with a 2 second timeout, to the host of `poli-page.base-url` (`https://api.poli.page` when unset). `UP` on HTTP `200` with the `baseUrl` detail set to the host name. `DOWN` with a `status` detail on any other status, and `DOWN` with the exception on a transport failure. See [Actuator](../../concepts/actuator/).
+
+### PoliPageMetrics
+
+```java
+public final class PoliPageMetrics implements MeterBinder {
+  public void bindTo(MeterRegistry registry);
+  @EventListener public void onRetry(PoliPageRetryEvent event);
+  @EventListener public void onError(PoliPageErrorEvent event);
+}
+```
+
+Package `page.poli.sdk.spring.metrics`. It registers three meters:
+
+| Meter | Type | Tags |
+| --- | --- | --- |
+| `poli.page.retries.total` | Counter | `attempt`, `reason` |
+| `poli.page.retries.delay` | Timer | `attempt`, `reason` |
+| `poli.page.errors.total` | Counter | `code`, `status_class` (`4xx`, `5xx`, `network`, `local`) |
+
+## MVC starter
+
+### PoliPageWebMvcAutoConfiguration
+
+`@AutoConfiguration(after = PoliPageAutoConfiguration.class)`, active when `PoliPageClient` and `RestController` are on the classpath and the application is a servlet web application. It imports `PoliPageErrorHandlerConfiguration` and registers:
+
+| Bean | Type | Condition |
+| --- | --- | --- |
+| `poliPageResponses` | `PoliPageResponses` | `@ConditionalOnMissingBean` |
+| `poliPageExceptionHandler` | `PoliPageWebMvcExceptionHandler` | `@ConditionalOnMissingBean(PoliPageExceptionHandler.class)`, and `poli-page.error-handler.enabled` not `false` |
+
+### PoliPageResponses
+
+```java
+public final class PoliPageResponses {
+  public ResponseEntity<byte[]> bytes(byte[] pdf, String filename);
+  public ResponseEntity<byte[]> bytes(byte[] pdf, String filename, boolean inline);
+  public ResponseEntity<StreamingResponseBody> stream(InputStream stream, String filename);
+  public ResponseEntity<StreamingResponseBody> stream(InputStream stream, String filename, boolean inline);
+  public ResponseEntity<String> preview(DocumentPreviewResult preview);
+  public ResponseEntity<Void> documentRedirect(DocumentDescriptor descriptor);
+}
+```
+
+Package `page.poli.sdk.spring.web`. The class is stateless and immutable.
+
+- `bytes` answers `200` with `Content-Type: application/pdf`, `Content-Length`, `Content-Disposition` (`attachment`, or `inline` when `inline` is `true`), `Cache-Control: private, no-store` and `X-Content-Type-Options: nosniff`.
+- `stream` answers `200` with the same headers except `Content-Length`. The helper owns `stream` and closes it after the body is written, or when the client disconnects.
+- `preview` answers `200` with `Content-Type: text/html; charset=utf-8` and `Cache-Control: private, no-store`.
+- `documentRedirect` answers `302` with the descriptor's `presignedPdfUrl` as `Location` and `Cache-Control: private, no-store`.
+
+`Content-Disposition` is built per RFC 6266 and RFC 8187: control characters are stripped, `\` and `"` are escaped, and a non-ASCII name gets an ASCII fallback plus a UTF-8 `filename*`. See [Responses](../../concepts/responses/).
+
+### PoliPageWebMvcExceptionHandler
+
+```java
+@RestControllerAdvice
+@Order(Ordered.LOWEST_PRECEDENCE)
+public class PoliPageWebMvcExceptionHandler extends PoliPageExceptionHandler {
+  public PoliPageWebMvcExceptionHandler();
+  @Override
+  public ResponseEntity<ErrorPayload> handlePoliPageException(PoliPageException ex);
+  @ExceptionHandler(PoliPageException.class)
+  public ResponseEntity<ErrorPayload> handlePoliPageException(PoliPageException ex, HttpServletResponse response);
+}
+```
+
+The one-argument method finds the current response through `RequestContextHolder`. Both methods remove the content headers already set on an uncommitted response (`Content-Disposition`, `Content-Length`, `Content-Encoding`, `Content-Range`, `Content-Language`, `Content-Type`) and keep the others. On a committed response they write nothing and rethrow the error.
+
+## WebFlux starter
+
+### PoliPageWebFluxAutoConfiguration
+
+`@AutoConfiguration(after = PoliPageAutoConfiguration.class)`, active when `PoliPageClient` and `WebFluxConfigurer` are on the classpath and the application is a reactive web application. It imports `PoliPageErrorHandlerConfiguration` and registers:
+
+| Bean | Type | Condition |
+| --- | --- | --- |
+| `poliPageDataBufferFactory` | `DataBufferFactory` (`DefaultDataBufferFactory`) | `@ConditionalOnMissingBean(DataBufferFactory.class)` |
+| `poliPageReactiveResponses` | `PoliPageReactiveResponses` | `@ConditionalOnMissingBean` |
+| `poliPageExceptionHandler` | `PoliPageWebFluxExceptionHandler` | `@ConditionalOnMissingBean(PoliPageExceptionHandler.class)`, and `poli-page.error-handler.enabled` not `false` |
+
+### PoliPageReactiveResponses
+
+```java
+public final class PoliPageReactiveResponses {
+  public PoliPageReactiveResponses(DataBufferFactory bufferFactory);
+  public Mono<ResponseEntity<byte[]>> bytes(CompletableFuture<byte[]> future, String filename);
+  public Mono<ResponseEntity<byte[]>> bytes(CompletableFuture<byte[]> future, String filename, boolean inline);
+  public Mono<ResponseEntity<Flux<DataBuffer>>> stream(CompletableFuture<InputStream> future, String filename);
+  public Mono<ResponseEntity<Flux<DataBuffer>>> stream(CompletableFuture<InputStream> future, String filename, boolean inline);
+  public Mono<ResponseEntity<String>> previewFromDocument(CompletableFuture<DocumentPreviewResult> future);
+  public Mono<ResponseEntity<Void>> documentRedirect(CompletableFuture<DocumentDescriptor> future);
+}
+```
+
+Package `page.poli.sdk.spring.reactive`. The headers are those of `PoliPageResponses`. Every method wraps its future in `Mono.fromFuture(future, false)`, so cancelling the `Mono` cancels the future. `stream` reads the `InputStream` in 8 KB buffers from the injected `DataBufferFactory`. See [WebFlux](../../concepts/webflux/).
+
+### PoliPageWebFluxExceptionHandler
+
+```java
+@RestControllerAdvice
+@Order(Ordered.LOWEST_PRECEDENCE)
+public class PoliPageWebFluxExceptionHandler extends PoliPageExceptionHandler {
+  public PoliPageWebFluxExceptionHandler();
+  @Override
+  @ExceptionHandler(PoliPageException.class)
+  public ResponseEntity<ErrorPayload> handlePoliPageException(PoliPageException ex);
+}
+```
+
+## Properties
+
+| Property | Type | Default |
+| --- | --- | --- |
+| `poli-page.api-key` | `String` | required |
+| `poli-page.base-url` | `URI` | SDK default |
+| `poli-page.request-timeout` | `Duration` | SDK default |
+| `poli-page.retries.max-attempts` | `Integer` | SDK default |
+| `poli-page.retries.delay` | `Duration` | SDK default |
+| `poli-page.health.enabled` | `boolean` | `true` |
+| `poli-page.metrics.enabled` | `boolean` | `true` |
+| `poli-page.events.enabled` | `boolean` | `true` |
+| `poli-page.error-handler.enabled` | `boolean` | `true` |
+
+## Types from the SDK
+
+The starters use these SDK types in their signatures. They are not re-exported: import them from `page.poli:sdk`.
+
+| Type | Package |
+| --- | --- |
+| `PoliPageClient` | `page.poli.sdk` |
+| `RetryEvent` | `page.poli.sdk` |
+| `PoliPageErrorCode` | `page.poli.sdk` |
+| `RenderInput` | `page.poli.sdk.input` |
+| `PoliPageException` and its subclasses | `page.poli.sdk.exception` |
+| `ErrorPayload` | `page.poli.sdk.exception` |
+| `DocumentDescriptor`, `DocumentPreviewResult` | `page.poli.sdk.model` |

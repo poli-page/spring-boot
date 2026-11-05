@@ -1,0 +1,170 @@
+---
+title: Observability
+description: Subscribe @EventListener methods to PoliPageRetryEvent and PoliPageErrorEvent, the Spring events that the SDK's retry and error hooks publish.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The SDK exposes `onRetry` (a `Consumer<RetryEvent>`) and `onError` (a `Consumer<Throwable>`) as builder hooks. The starter wraps them in `PoliPageEventBridge` and publishes two Spring `ApplicationEvent`s through `ApplicationEventPublisher`: `page.poli.sdk.spring.event.PoliPageRetryEvent` and `page.poli.sdk.spring.event.PoliPageErrorEvent`. You observe retries and terminal errors with the `@EventListener` methods, `@TransactionalEventListener` semantics and `ApplicationEventMulticaster` plumbing you already use. You do not write `Consumer<RetryEvent>` lambdas in a `@Bean PoliPageClient`. The [Actuator](../../concepts/actuator/) counters and timer are built on the same events.
+
+## The events
+
+Both classes carry the SDK payload unchanged and extend `org.springframework.context.ApplicationEvent`, so the multicaster routes them to any `@EventListener` whose parameter type matches.
+
+- `PoliPageRetryEvent` fires just before the SDK sleeps between two attempts. Its `sdkEvent()` returns the SDK `RetryEvent` record, with `attempt`, `delay`, `statusCode` and `reason`. `reason` is one of four stable values, `"5xx"`, `"rate_limit"`, `"timeout"` and `"network_error"`, which makes it safe as a metric tag.
+- `PoliPageErrorEvent` fires for terminal failures: the ones the SDK gave up on after it used its retry budget. Its `exception()` returns the SDK `PoliPageException`, with `code()`, `statusCode()` and `requestId()`. A transient 5xx that the SDK retries past does not surface here: it surfaces as a `PoliPageRetryEvent`.
+
+The exception still propagates from the call site to your controller. The listener is for side effects (error tracking, alerting, an audit log), not for changing control flow.
+
+The bridge publishes a `PoliPageErrorEvent` only when the cause is a `PoliPageException`. It drops any other `Throwable`.
+
+## Log retry attempts
+
+```java
+@Component
+public class LogPoliPageRetries {
+
+    private static final Logger log = LoggerFactory.getLogger(LogPoliPageRetries.class);
+
+    @EventListener
+    public void onRetry(PoliPageRetryEvent event) {
+        log.warn("Poli Page retry attempt={} delay={} reason={} status={}",
+            event.sdkEvent().attempt(),
+            event.sdkEvent().delay(),
+            event.sdkEvent().reason(),
+            event.sdkEvent().statusCode());
+    }
+}
+```
+
+## Report terminal failures
+
+```java
+@Component
+public class ReportPoliPageFailures {
+
+    private final ErrorReporter sentry;
+
+    public ReportPoliPageFailures(ErrorReporter sentry) {
+        this.sentry = sentry;
+    }
+
+    @EventListener
+    public void onError(PoliPageErrorEvent event) {
+        PoliPageException ex = event.exception();
+        sentry.captureException(ex, builder -> builder
+            .tag("poli.code", ex.code())
+            .tag("poli.status", String.valueOf(ex.statusCode()))
+            .tag("poli.request_id", ex.requestId()));
+    }
+}
+```
+
+## Async listeners
+
+By default an `@EventListener` runs on the publisher's thread, which here is the SDK's retry or error hook thread, on the hot path of your render call. A listener that does I/O (Slack, an error tracker over HTTP, a database insert) should be asynchronous:
+
+```java
+@EnableAsync
+@Configuration
+public class AsyncConfig { }
+
+@Component
+public class SlackAlerts {
+    @Async
+    @EventListener
+    public void onError(PoliPageErrorEvent event) {
+        slackClient.post("#alerts", "Poli Page failed: " + event.exception().code());
+    }
+}
+```
+
+`@Async` dispatches the listener on Spring's default `taskExecutor`. Use `@Async("name")` to give a listener its own executor and isolate it from the rest of the async pool.
+
+## Transactional listeners
+
+A `@TransactionalEventListener` (phase `AFTER_COMMIT` by default) fires only after the surrounding transaction commits. That is useful when a listener writes to a database and should skip the write if the render ran inside a transaction that rolled back:
+
+```java
+@Component
+public class PoliPageAudit {
+
+    @TransactionalEventListener
+    public void onError(PoliPageErrorEvent event) {
+        auditRepository.save(new AuditEntry(event.exception()));
+    }
+}
+```
+
+The events fire from inside the SDK's internal threads, outside any `@Transactional` boundary of your own. A `@TransactionalEventListener` skips them with a warning ("No transaction is active") unless your calling code republishes the event under its own transaction, which is usually not what you want. Use a plain `@EventListener` for retry and error events.
+
+## Disable the bridge
+
+Set `poli-page.events.enabled=false`. The auto-configuration then drops `PoliPageEventBridge`, the SDK client is built without `.onRetry(...)` and `.onError(...)` hooks, and no event fires. The Micrometer meters then have nothing to count either.
+
+```yaml
+poli-page:
+  events:
+    enabled: false
+```
+
+## Publish the events from your own client
+
+If you declare your own `@Bean PoliPageClient`, you take over the builder, and the starter's bridge does not run. To keep the Spring events, publish them yourself. This is what the auto-configuration does, so copy the pattern if you also need extra callbacks:
+
+```java
+@Configuration
+public class PoliPageConfig {
+
+    @Bean
+    PoliPageClient poliPageClient(PoliPageProperties props, ApplicationEventPublisher publisher) {
+        return PoliPageClient.builder()
+            .apiKey(props.apiKey())
+            .onRetry(event -> publisher.publishEvent(new PoliPageRetryEvent(this, event)))
+            .onError(t -> {
+                if (t instanceof PoliPageException ppe) {
+                    publisher.publishEvent(new PoliPageErrorEvent(this, ppe));
+                }
+            })
+            .build();
+    }
+}
+```
+
+## Gotchas
+
+- **Your own client replaces the bridge.** `@ConditionalOnMissingBean` lets your bean win, and with it goes the auto-configuration's wiring. If you want both your callback and the Spring event, publish the event inside your callback, as above.
+- **Only terminal failures reach `PoliPageErrorEvent`.** To react to the exception in the caller, wrap the SDK call in a `try/catch`.
+- **Hooks must not throw.** The SDK wraps each `Consumer` in a swallowing `try/catch`, so an exception thrown from a listener is logged at SLF4J `WARN` and dropped. A listener should log and return. The SDK's invariant is that hooks never break the request path.
+- **Slow listeners slow the retry loop.** A listener runs on the SDK's retry thread by default, so it adds to the latency you see. Make listeners that do I/O `@Async` and configure a sensible `taskExecutor`. Logging is fast enough to stay synchronous.
+- **Native images need hints.** `@EventListener` discovery uses reflection, so a native-image build may need reflection hints for the event classes with `@ImportRuntimeHints`. The starter ships none.
+
+<Aside type="tip">
+In WebFlux apps the events work the same way. The bridge runs on the SDK's threads, not on a Reactor scheduler, so keep `@EventListener` methods out of reactive pipelines.
+</Aside>
+
+## Example
+
+```java
+@Component
+public class PoliPageObservers {
+
+    private static final Logger log = LoggerFactory.getLogger(PoliPageObservers.class);
+
+    @EventListener
+    public void onRetry(PoliPageRetryEvent event) {
+        log.warn("retry attempt={} reason={}", event.sdkEvent().attempt(), event.sdkEvent().reason());
+    }
+
+    @EventListener
+    public void onError(PoliPageErrorEvent event) {
+        log.error("gave up: code={} requestId={}", event.exception().code(), event.exception().requestId());
+    }
+}
+```
+
+## See also
+
+- [Actuator](../../concepts/actuator/)
+- [Client access](../../concepts/client-access/)
+- [Configuration](../../concepts/configuration/)

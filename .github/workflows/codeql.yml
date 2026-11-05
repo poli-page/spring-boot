@@ -1,0 +1,53 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '23 4 * * 1'  # weekly, Monday 04:23 UTC
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+concurrency:
+  group: codeql-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  analyze:
+    name: Analyze (java)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6.1.0
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: java
+          queries: security-and-quality
+
+      # CodeQL traces the compiler: no daemon, and no build cache, which would skip the compile.
+      - name: Build
+        run: ./gradlew --no-daemon --no-build-cache compileJava compileTestJava
+
+      # SARIF upload requires GitHub Advanced Security, which is not enabled on
+      # this private repo. continue-on-error keeps the workflow green so the
+      # analysis still runs (results visible in the step log); flip back to a
+      # hard failure once the repo is public or AS is licensed.
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        continue-on-error: true
+        with:
+          category: "/language:java"

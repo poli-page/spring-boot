@@ -1,0 +1,203 @@
+---
+title: Testing
+description: Stub PoliPageClient with @MockitoBean, assert events and configuration, drive a WireMock server, and gate one smoke test on a sandbox key.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+A test that calls `api.poli.page` is slow, brittle and uses up your quota. A test that ignores the SDK misses the wiring the starter is responsible for. The test pyramid for an app that uses the starter is: most tests stub `PoliPageClient` at the bean level (fast, no network), one or two integration tests use a WireMock server (no quota), and one smoke test calls the live API with a `pp_sandbox_` key, gated on that key. The starter follows the same pyramid. This page covers the techniques an application that uses the starter should adopt.
+
+## Stub the client
+
+Spring Boot's `@MockitoBean` (Boot 3.4 and later) replaces a bean in the test context with a Mockito mock. It is the idiomatic way to test a `@RestController` that injects `PoliPageClient`. The full test is in the Example below. Three points matter:
+
+1. **`@WebMvcTest` boots a slice.** It loads the web layer and the controllers under test only. The `PoliPageAutoConfiguration` is not active, so `PoliPageClient` is not auto-wired, and `@MockitoBean` provides it.
+2. **`@Import(PoliPageResponses.class)` brings in the real helper.** It is stateless and needs no setup. Mocking `PoliPageResponses` with `@MockitoBean` would make you assert on the controller's calls instead of the real response headers, which defeats half the purpose of a controller test.
+3. **The `Render` facade is mocked separately.** `client.render()` returns a cached `Render` instance, so mock that chain. When a controller calls several methods, mock each call.
+
+### Spring Boot 3.2 and 3.3
+
+`@MockitoBean` shipped in Spring Boot 3.4. Earlier versions use `@MockBean` from `org.springframework.boot.test.mock.mockito`, which is deprecated in 3.4:
+
+```java
+@WebMvcTest(InvoiceController.class)
+class InvoiceControllerTest {
+    @Autowired MockMvc mvc;
+    @MockBean PoliPageClient client;
+    // ... same test body
+}
+```
+
+## Assert events
+
+To check that the retry hook publishes the right `ApplicationEvent`, record the publications with `@RecordApplicationEvents`, which is part of `spring-test`. It collects every event published during the test method and lets you assert on the stream:
+
+```java
+@SpringBootTest
+@RecordApplicationEvents
+class PoliPageEventsTest {
+
+    @Autowired ApplicationEvents events;
+    @Autowired PoliPageEventBridge bridge;
+
+    @Test
+    void retryEventPublishedFromBridge() {
+        bridge.onRetry(new RetryEvent(1, Duration.ofMillis(500), 502, "5xx"));
+
+        assertThat(events.stream(PoliPageRetryEvent.class))
+            .singleElement()
+            .satisfies(e -> {
+                assertThat(e.sdkEvent().attempt()).isEqualTo(1);
+                assertThat(e.sdkEvent().reason()).isEqualTo("5xx");
+            });
+    }
+}
+```
+
+## Test the configuration
+
+Use `ApplicationContextRunner` for tests at the auto-configuration level. It is much faster than `@SpringBootTest` and gives you exact control over property values. Only a missing or blank key fails startup. A key that does not look like one starts the context with one warning, and the API decides whether it is valid.
+
+```java
+class PoliPagePropertiesValidationTest {
+
+    private final ApplicationContextRunner runner = new ApplicationContextRunner()
+        .withConfiguration(AutoConfigurations.of(PoliPageAutoConfiguration.class));
+
+    @Test
+    void rejectsBlankKey() {
+        runner.withPropertyValues("poli-page.api-key=")
+            .run(context -> assertThat(context).hasFailed());
+    }
+
+    @Test
+    void acceptsValidKey() {
+        runner.withPropertyValues("poli-page.api-key=pp_sandbox_0123456789abcdef0123456789abcdef")
+            .run(context -> assertThat(context).hasNotFailed()
+                .hasSingleBean(PoliPageClient.class));
+    }
+}
+```
+
+## WireMock
+
+When you want to drive a full request through the SDK without calling the real API, point the starter at a WireMock instance with `poli-page.base-url`:
+
+```java
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+class FullRenderFlowTest {
+
+    static WireMockServer wiremock;
+
+    @DynamicPropertySource
+    static void poliPageBaseUrl(DynamicPropertyRegistry registry) {
+        wiremock = new WireMockServer(WireMockConfiguration.options().dynamicPort());
+        wiremock.start();
+        registry.add("poli-page.base-url", wiremock::baseUrl);
+        registry.add("poli-page.api-key", () -> "pp_sandbox_0123456789abcdef0123456789abcdef");
+    }
+
+    @AfterAll
+    static void stopWiremock() { wiremock.stop(); }
+
+    @Test
+    void controllerReturnsPdfFromStubbedApi() throws Exception {
+        wiremock.stubFor(post("/v1/render").willReturn(okJson("""
+            {
+              "documentId": "doc_x",
+              "presignedPdfUrl": "%s/files/doc_x.pdf"
+            }
+            """.formatted(wiremock.baseUrl()))));
+        wiremock.stubFor(get("/files/doc_x.pdf").willReturn(
+            aResponse().withHeader("Content-Type", "application/pdf").withBody("%PDF-fake")));
+
+        // ... exercise the controller via TestRestTemplate, assert the response
+    }
+}
+```
+
+This is useful to verify the whole chain (controller, SDK, HTTP, response) and specific failure modes, for example how your controller reacts to a 429 from Poli Page. For most tests, a stubbed `PoliPageClient` is enough.
+
+## Smoke test against the live API
+
+The starter's own `RenderAgainstDevelopApiIT` is the template. Adopt the same gate for your smoke test:
+
+```java
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@EnabledIfEnvironmentVariable(named = "POLI_PAGE_API_KEY", matches = "pp_sandbox_.+")
+class PoliPageSmokeIT {
+
+    @LocalServerPort int port;
+    @Autowired TestRestTemplate rest;
+
+    @Test
+    void rendersWelcomePdf() {
+        ResponseEntity<byte[]> response = rest.getForEntity(
+            "http://localhost:" + port + "/welcome.pdf", byte[].class);
+
+        assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(response.getHeaders().getContentType())
+            .isEqualTo(MediaType.APPLICATION_PDF);
+        assertThat(new String(response.getBody(), 0, 5, ISO_8859_1)).isEqualTo("%PDF-");
+    }
+}
+```
+
+`@EnabledIfEnvironmentVariable` (JUnit 5) skips the whole class unless `POLI_PAGE_API_KEY` is a sandbox key. Local runs stay green without a key, and the smoke test never renders into a counted environment (`live`, or one created on Pro+).
+
+## What the starter does not test
+
+These belong to the SDK and have their own test suite in [sdk-java](https://github.com/poli-page/sdk-java):
+
+- HTTP transport behavior (JDK `HttpClient` edge cases, connection pool sizing).
+- The retry policy: exponential backoff, maximum attempts, `Retry-After`, never retrying a 4xx.
+- The mapping of 4xx and 5xx answers to exceptions.
+- Idempotency-key generation.
+- Stream handling and byte-range correctness.
+
+Testing them again in your app, or in the starter, is wasted effort and doubles the maintenance. If you are about to write a mock HTTP server to test "what happens when the API returns 429 three times in a row", stop: that is SDK behavior, and the SDK already covers it.
+
+## Gotchas
+
+- **`@WebMvcTest` does not activate the auto-configuration.** Slice tests narrow the context on purpose. `@Import(PoliPageResponses.class)`, or `@Import(PoliPageAutoConfiguration.class)` for the full bean graph, brings the beans in.
+- **Mocks are reset between test methods.** Mockito's `reset(client)` runs after each test. Stub in `@BeforeEach` or inside the test.
+- **`PoliPageEventBridge` is a real bean.** If your test imports the full auto-configuration and your code publishes a fake `RetryEvent`, the `@EventListener` methods of other beans in the context fire. Limit what loads with `@SpringBootTest(classes = ...)`, or stub the publisher.
+- **`@SpringBootTest` boots the health indicator.** The probe calls `https://api.poli.page/v1/health` by default, which makes a test network-dependent. Point `poli-page.base-url` at a stub with `@DynamicPropertySource`, or set `poli-page.health.enabled=false` with `@TestPropertySource`.
+- **`TestRestTemplate` blocks on streamed responses.** It reads the whole `StreamingResponseBody` into a `byte[]` before it returns. To verify streaming end to end, use Spring's `WebClient` with a `Flux<DataBuffer>` body, which keeps the streaming semantics.
+
+<Aside type="tip">
+You can run the starter's own contract tests against its two example apps with `POLI_CONTRACT=<path to contract.json> ./gradlew --no-daemon :example-app:mvc:test :example-app:webflux:test`. Without `POLI_CONTRACT` they are skipped locally.
+</Aside>
+
+## Example
+
+```java
+@WebMvcTest(InvoiceController.class)
+@Import(PoliPageResponses.class)  // the real helper; the SDK auto-configuration stays out of the slice
+class InvoiceControllerTest {
+
+    @Autowired MockMvc mvc;
+    @MockitoBean PoliPageClient client;
+
+    @Test
+    void rendersInvoicePdf() throws Exception {
+        Render render = mock(Render.class);
+        when(client.render()).thenReturn(render);
+        when(render.pdf(any(RenderInput.class)))
+            .thenReturn("%PDF-1.4 fake-bytes".getBytes(StandardCharsets.ISO_8859_1));
+
+        mvc.perform(get("/invoices/123.pdf"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Content-Type", "application/pdf"))
+            .andExpect(header().string("Content-Disposition",
+                containsString("filename=\"invoice-123.pdf\"")))
+            .andExpect(content().bytes("%PDF-1.4 fake-bytes".getBytes(StandardCharsets.ISO_8859_1)));
+    }
+}
+```
+
+## See also
+
+- [Client access](../../concepts/client-access/)
+- [Observability](../observability/)
+- [Errors](../errors/)

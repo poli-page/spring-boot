@@ -1,6 +1,17 @@
 # Poli Page for Spring Boot
 
+[![Ci](https://img.shields.io/github/actions/workflow/status/poli-page/spring-boot/ci.yml?branch=main&style=flat&logo=githubactions&logoColor=ffffff&label=Ci)](https://github.com/poli-page/spring-boot/actions/workflows/ci.yml)
+[![Codeql](https://img.shields.io/github/actions/workflow/status/poli-page/spring-boot/codeql.yml?branch=main&style=flat&logo=github&logoColor=ffffff&label=Codeql)](https://github.com/poli-page/spring-boot/actions/workflows/codeql.yml)
+[![Coverage](https://img.shields.io/codecov/c/github/poli-page/spring-boot?style=flat&logo=codecov&logoColor=ffffff&label=Coverage)](https://codecov.io/gh/poli-page/spring-boot)
+[![Java](https://img.shields.io/badge/Java-17%2B-blue?style=flat&logo=openjdk&logoColor=ffffff)](https://adoptium.net/)
+[![Spring boot](https://img.shields.io/badge/Spring%20boot-3.2%20%7C%203.3%20%7C%203.4-blue?style=flat&logo=springboot&logoColor=ffffff)](https://spring.io/projects/spring-boot)
+[![Deps](https://img.shields.io/badge/Deps-up%20to%20date-brightgreen?style=flat&logo=openjdk&logoColor=ffffff)](https://github.com/poli-page/spring-boot/network/dependencies)
+[![Docs](https://img.shields.io/badge/Docs-online-brightgreen?style=flat&logo=readthedocs&logoColor=ffffff)](https://poli-page.github.io/spring-boot/)
+[![License](https://img.shields.io/badge/License-MIT-blue?style=flat&logo=gnu&logoColor=ffffff)](LICENSE)
+
 > Render Poli Page documents as Spring Boot controller responses.
+
+→ **Documentation**: https://poli-page.github.io/spring-boot/
 
 ## About
 
@@ -165,7 +176,7 @@ You inspect the resolved bean graph with `/actuator/conditions` (when Actuator i
 | `page.poli.sdk.spring.actuator.PoliPageHealthIndicator` | `/actuator/health` component named `poliPage`, probing `GET /v1/health`. |
 | `page.poli.sdk.spring.metrics.PoliPageMetrics` | `MeterBinder` exposing `poli.page.retries.total`, `.delay`, `.errors.total`. |
 
-Full reference: [docs/auto-configuration.md](docs/auto-configuration.md).
+Full reference: [API reference](https://poli-page.github.io/spring-boot/reference/api/).
 
 ## Errors
 
@@ -252,7 +263,7 @@ try {
 }
 ```
 
-`PoliPageErrorEvent` fires for terminal failures in addition to the throw, so you can wire global alerting through a single `@EventListener` without controller-level boilerplate. See [docs/events.md](docs/events.md).
+`PoliPageErrorEvent` fires for terminal failures in addition to the throw, so you can wire global alerting through a single `@EventListener` without controller-level boilerplate. See [Observability](https://poli-page.github.io/spring-boot/production/observability/).
 
 ## Example app
 
@@ -268,14 +279,14 @@ See [example-app/README.md](example-app/README.md) for the full route map.
 
 ## Going further
 
-- [docs/auto-configuration.md](docs/auto-configuration.md) — How beans are registered, overridden, and disabled.
-- [docs/configuration-properties.md](docs/configuration-properties.md) — Every `poli-page.*` key, its validation, and relaxed-binding rules.
-- [docs/responses.md](docs/responses.md) — The four `ResponseEntity` builders, their headers, and RFC 5987 filename encoding.
-- [docs/streaming.md](docs/streaming.md) — `StreamingResponseBody` for multi-MB PDFs without buffering.
-- [docs/webflux.md](docs/webflux.md) — Reactive variant: `Mono<ResponseEntity<byte[]>>` and `Flux<DataBuffer>`.
-- [docs/events.md](docs/events.md) — Subscribe to `PoliPageRetryEvent` / `PoliPageErrorEvent` with `@EventListener`.
-- [docs/actuator.md](docs/actuator.md) — The `HealthIndicator` and three Micrometer meters.
-- [docs/testing.md](docs/testing.md) — Stubbing `PoliPageClient` with `@MockitoBean`, WireMock-backed integration tests.
+- [Client access](https://poli-page.github.io/spring-boot/concepts/client-access/) — How beans are registered, overridden, and disabled.
+- [Configuration](https://poli-page.github.io/spring-boot/concepts/configuration/) — Every `poli-page.*` key, its validation, and relaxed-binding rules.
+- [Responses](https://poli-page.github.io/spring-boot/concepts/responses/) — The four `ResponseEntity` builders, their headers, and RFC 5987 filename encoding.
+- [Streaming](https://poli-page.github.io/spring-boot/concepts/responses/#streamed-pdf) — `StreamingResponseBody` for multi-MB PDFs without buffering.
+- [WebFlux](https://poli-page.github.io/spring-boot/concepts/webflux/) — Reactive variant: `Mono<ResponseEntity<byte[]>>` and `Flux<DataBuffer>`.
+- [Observability](https://poli-page.github.io/spring-boot/production/observability/) — Subscribe to `PoliPageRetryEvent` / `PoliPageErrorEvent` with `@EventListener`.
+- [Actuator](https://poli-page.github.io/spring-boot/concepts/actuator/) — The `HealthIndicator` and three Micrometer meters.
+- [Testing](https://poli-page.github.io/spring-boot/production/testing/) — Stubbing `PoliPageClient` with `@MockitoBean`, WireMock-backed integration tests.
 
 ## Compatibility
 

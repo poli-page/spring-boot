@@ -1,0 +1,185 @@
+---
+title: Client access
+description: How the starter registers the PoliPageClient bean, which conditions gate it, and how to inject, override, disable and inspect it.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Adding a starter to your build is enough to get a `PoliPageClient` bean. The starter uses the `@AutoConfiguration` annotation and an `AutoConfiguration.imports` file, the replacement for `spring.factories` since Spring Boot 2.7. Every bean the starter provides is conditional, so it never fights a configuration you already declared: a `@Bean PoliPageClient` of your own takes over silently.
+
+## Inject the client
+
+Constructor-inject `PoliPageClient` into any `@Component`, `@Service` or `@RestController`. The client exposes `render()`, `documents()`, `renderAsync()` and `documentsAsync()`. The response helper of your stack, `PoliPageResponses` in MVC or `PoliPageReactiveResponses` in WebFlux, is injected the same way.
+
+## What the imports files activate
+
+Three modules each ship one imports file. `poli-page-spring-boot-autoconfigure` lists:
+
+```text
+page.poli.sdk.spring.PoliPageAutoConfiguration
+```
+
+The MVC starter adds:
+
+```text
+page.poli.sdk.spring.web.PoliPageWebMvcAutoConfiguration
+```
+
+The WebFlux starter adds:
+
+```text
+page.poli.sdk.spring.reactive.PoliPageWebFluxAutoConfiguration
+```
+
+The order between them is declared on the classes (`after = PoliPageAutoConfiguration.class`), not in the files.
+
+## The conditional chain
+
+`PoliPageAutoConfiguration` binds the properties, builds the client and registers the bean toggles:
+
+- **`@ConditionalOnClass(PoliPageClient.class)`** skips the whole auto-configuration when the SDK is absent from the classpath, without a bean failure.
+- **`@EnableConfigurationProperties(PoliPageProperties.class)`** binds and validates `poli-page.*`. See [Configuration](../configuration/).
+- **`@ConditionalOnMissingBean`** on the `PoliPageClient` bean method yields to your own `@Bean PoliPageClient`.
+- **`PoliPageEventBridge`** is registered unless `poli-page.events.enabled=false`. When the bridge exists, the client is built with `onRetry` and `onError` hooks that publish Spring events. See [Observability](../../production/observability/).
+- **`PoliPageHealthIndicator`**, named `poliPage`, needs Actuator's `HealthIndicator` on the classpath and `poli-page.health.enabled` not `false`. **`PoliPageMetrics`** needs Micrometer's `MeterRegistry` and `poli-page.metrics.enabled` not `false`. See [Actuator](../actuator/).
+
+The client bean method passes only the options you set to the SDK builder, then builds the client and checks the key format (see [Key format warning](../configuration/#key-format-warning)):
+
+```java
+PoliPageClient.Builder builder = PoliPageClient.builder().apiKey(props.apiKey());
+if (props.baseUrl() != null) builder.baseUrl(props.baseUrl());
+if (props.requestTimeout() != null) builder.requestTimeout(props.requestTimeout());
+if (props.retries().maxAttempts() != null) builder.maxRetries(props.retries().maxAttempts());
+if (props.retries().delay() != null) builder.retryDelay(props.retries().delay());
+bridge.ifAvailable(eb -> {
+    builder.onRetry(eb::onRetry);
+    builder.onError(eb::onError);
+});
+```
+
+### The MVC and WebFlux auto-configurations
+
+Each web starter has its own auto-configuration, gated on the runtime web stack:
+
+```java
+@AutoConfiguration(after = PoliPageAutoConfiguration.class)
+@ConditionalOnClass({PoliPageClient.class, RestController.class})
+@ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
+@Import(PoliPageErrorHandlerConfiguration.class)
+public class PoliPageWebMvcAutoConfiguration {
+
+    @Bean
+    @ConditionalOnMissingBean
+    public PoliPageResponses poliPageResponses() {
+        return new PoliPageResponses();
+    }
+}
+```
+
+- **`@ConditionalOnWebApplication(type = SERVLET)`** activates `PoliPageResponses` only when Spring MVC is the runtime stack. `PoliPageWebFluxAutoConfiguration` uses `Type.REACTIVE` and registers `PoliPageReactiveResponses`, so the two never clash.
+- **The default error handler.** Each stack registers its `@RestControllerAdvice` subclass of `PoliPageExceptionHandler`: `PoliPageWebMvcExceptionHandler` or `PoliPageWebFluxExceptionHandler`. `@Import(PoliPageErrorHandlerConfiguration.class)` adds the Jackson module that keeps the error body's `null` fields. Both are `@ConditionalOnMissingBean` and switched off by `poli-page.error-handler.enabled=false`. See [Errors](../../production/errors/).
+- **`after = PoliPageAutoConfiguration.class`** wires each helper after the client bean exists in the context.
+
+## Override the client
+
+Declare your own `@Bean PoliPageClient` and the starter's bean recedes. That is useful for:
+
+- Retry or error callbacks with logic you do not want to express as an `@EventListener`.
+- A client shared with another integration.
+- Error-tracking instrumentation wrapped around the SDK builder.
+
+`PoliPageProperties` stays in the context, so you can read configured values from `application.yml` while you control the build yourself. The retry and error bridge is bypassed entirely. If you want both your callback and the Spring `ApplicationEvent`, publish the event from inside your callback: see [Observability](../../production/observability/#publish-the-events-from-your-own-client).
+
+## Disable the auto-configuration
+
+Two ways to silence the starter in a scope.
+
+Per-feature toggles remove one bean each. They read `@ConditionalOnProperty(..., matchIfMissing = true)`, so omitting them is the same as `true`:
+
+```yaml
+poli-page:
+  events:
+    enabled: false         # remove the ApplicationEventPublisher bridge
+  health:
+    enabled: false         # remove the HealthIndicator
+  metrics:
+    enabled: false         # remove the Micrometer MeterBinder
+  error-handler:
+    enabled: false         # remove the default error handler
+```
+
+A full opt-out goes through Spring's exclude list, in YAML or in code:
+
+```yaml
+spring:
+  autoconfigure:
+    exclude:
+      - page.poli.sdk.spring.PoliPageAutoConfiguration
+      - page.poli.sdk.spring.web.PoliPageWebMvcAutoConfiguration
+```
+
+```java
+@SpringBootApplication(exclude = {
+    PoliPageAutoConfiguration.class,
+    PoliPageWebMvcAutoConfiguration.class,
+})
+public class MyApplication { }
+```
+
+The starter then ships no bean and `PoliPageProperties` is not bound. Use this when your app shares the JVM with the SDK but wires it by hand, in a `@Configuration` you ship yourself.
+
+## Inspect what fired
+
+With Actuator on the classpath, Spring Boot's `/actuator/conditions` endpoint shows every auto-configuration the starter contributes and why it matched or not:
+
+```bash
+curl localhost:8080/actuator/conditions | jq '.contexts.application.positiveMatches | with_entries(select(.key | startswith("PoliPage")))'
+```
+
+A match looks like this:
+
+```json
+{
+  "PoliPageAutoConfiguration": [
+    { "condition": "OnClassCondition", "message": "@ConditionalOnClass found required class 'page.poli.sdk.PoliPageClient'" }
+  ],
+  "PoliPageAutoConfiguration#poliPageClient": [
+    { "condition": "OnBeanCondition", "message": "@ConditionalOnMissingBean (types: page.poli.sdk.PoliPageClient; SearchStrategy: all) did not find any beans" }
+  ]
+}
+```
+
+If the starter does not activate, look here first. Usually the SDK jar is missing (`OnClassCondition` names the missing class) or a `@Bean PoliPageClient` is already in scope (the `OnBeanCondition` message names the existing bean).
+
+## Gotchas
+
+- **Unset properties reach the SDK's defaults.** An option left out of `application.yml` is `null` in the record, and the `!= null` guard skips its setter. The SDK builder's defaults stay the single source of truth across SDK upgrades.
+- **Both starters can share a classpath.** Including `poli-page-spring-boot-starter` and `poli-page-spring-boot-starter-webflux` is supported, for example during a hybrid migration, but only one of `PoliPageWebMvcAutoConfiguration` and `PoliPageWebFluxAutoConfiguration` activates per application, gated on `@ConditionalOnWebApplication(type = ...)`. The other stays inert.
+- **`@ConditionalOnMissingBean` is type-strict.** Your bean must have the type `PoliPageClient` (or a subclass) to suppress the starter's. A `@Bean Object myPoliPageClient` does not count: declare it with the right return type.
+- **Native images are best-effort.** The SDK uses reflection on Jackson types, so a native-image build may need `@ImportRuntimeHints` to register extra reflection metadata.
+
+<Aside type="note">
+`PoliPageResponses` and `PoliPageReactiveResponses` are not interchangeable. An MVC app gets the first, a WebFlux app the second.
+</Aside>
+
+## Example
+
+```java
+@Configuration
+public class PoliPageConfig {
+
+    @Bean
+    PoliPageClient poliPageClient(PoliPageProperties props, Sentry sentry) {
+        return PoliPageClient.builder()
+            .apiKey(props.apiKey())
+            .onError(t -> sentry.captureException(t))
+            .build();
+    }
+}
+```
+
+## See also
+
+- [Configuration](../configuration/)
+- [Responses](../responses/)
+- [Testing](../../production/testing/)

@@ -1,0 +1,87 @@
+---
+title: Install
+description: Add the Poli Page Spring Boot starter (MVC or WebFlux) with Maven or Gradle and set your API key. The starter registers itself.
+---
+
+The starters are on Maven Central under the `page.poli` group: `poli-page-spring-boot-starter` for Spring MVC and `poli-page-spring-boot-starter-webflux` for Spring WebFlux. Both wrap the Poli Page Java SDK, `page.poli:sdk`, and share the `poli-page-spring-boot-autoconfigure` module that holds the auto-configuration.
+
+## Requirements
+
+- Java 17 or later.
+- Spring Boot 3.2, 3.3 or 3.4, on the Jakarta namespace. Spring Boot 2.x is not supported.
+- The Poli Page Java SDK [`page.poli:sdk`](https://github.com/poli-page/sdk-java) `0.13.x`. The starter brings it in.
+- A Poli Page API key. Get one at [poli.page/dashboard/keys](https://poli.page/dashboard/keys).
+
+CI builds and tests every combination of Java 17 and 21 with Spring Boot `3.2.+`, `3.3.+` and `3.4.+`. The starters share their major.minor with the Poli Page API and the SDK: starter `0.13.x` requires `page.poli:sdk` `0.13.x`.
+
+## Install the packages
+
+Pick the artifact that matches your web stack. The MVC starter brings `spring-boot-starter-web`, and the WebFlux starter brings `spring-boot-starter-webflux`. With Maven:
+
+```xml
+<dependency>
+    <groupId>page.poli</groupId>
+    <artifactId>poli-page-spring-boot-starter</artifactId>
+    <version>0.13.0</version>
+</dependency>
+```
+
+With Gradle (Kotlin DSL):
+
+```kotlin
+implementation("page.poli:poli-page-spring-boot-starter:0.13.0")
+```
+
+For a reactive WebFlux app, swap the artifact id:
+
+```kotlin
+implementation("page.poli:poli-page-spring-boot-starter-webflux:0.13.0")
+```
+
+Both starters depend on `page.poli:sdk:0.13.0`, which comes with them. To take a later `0.13.x` patch of the SDK before the starter moves to it, declare `page.poli:sdk` with that version in your own build. An SDK of another minor (`0.14.x`) goes with the starter of that minor.
+
+## Set your API key
+
+Put the key in your environment:
+
+```bash
+# .env
+POLI_PAGE_API_KEY=pp_sandbox_your_key_here
+```
+
+An API key belongs to exactly one environment of your organization, and its text names that environment: a key is `pp_{env}_{32 lowercase hex}`. The API selects the environment from the key, so there is nothing else to configure.
+
+| Environment | Key | Watermark | Counted |
+| --- | --- | --- | --- |
+| `sandbox` (every org) | `pp_sandbox_…` | yes | no |
+| `live` (every org, deletable on Pro+) | `pp_live_…` | no | yes |
+| created on Pro+ (for example `staging`) | `pp_staging_…` | no | yes |
+
+"Counted" means the render counts toward the organization's monthly PDF quota.
+
+The API is the only authority on keys. The starter only requires `poli-page.api-key` to be present and not blank. A value that does not look like a key starts the app with one warning: see [Configuration](../../concepts/configuration/#key-format-warning).
+
+## Register the starter
+
+You register nothing. Each artifact ships a `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` file, so Spring Boot activates the auto-configuration as soon as the jar is on the classpath. With `poli-page.api-key` set, the application context holds a `PoliPageClient` bean and, in a web application, the response helper of your stack. The beans are all conditional and all replaceable: see [Client access](../../concepts/client-access/).
+
+## Example
+
+```yaml
+# application.yml
+poli-page:
+  api-key: ${POLI_PAGE_API_KEY}
+```
+
+```kotlin
+// build.gradle.kts
+dependencies {
+    implementation("page.poli:poli-page-spring-boot-starter:0.13.0")
+}
+```
+
+## See also
+
+- [Quick start](../quick-start/)
+- [Configuration](../../concepts/configuration/)
+- [Client access](../../concepts/client-access/)

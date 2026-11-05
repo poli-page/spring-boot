@@ -1,0 +1,179 @@
+---
+title: WebFlux
+description: Use poli-page-spring-boot-starter-webflux to return Mono and Flux of DataBuffer from reactive controllers and router functions.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Spring WebFlux is Spring Boot's reactive web stack: non-blocking I/O with end-to-end backpressure, suited to services that wait on many slow upstreams. The SDK's `renderAsync()` and `documentsAsync()` facades return `CompletableFuture<T>` for every call. The WebFlux starter ships `PoliPageReactiveResponses`, in `page.poli.sdk.spring.reactive`, a sibling of the MVC `PoliPageResponses` that turns those futures into `Mono` and `Flux` types, so your controller composes with the rest of your reactive pipeline. A controller that merges a render with two other downstream calls, for example, uses `Mono.zip(...)` instead of blocking on a `Future`.
+
+## Pick the WebFlux starter
+
+```kotlin
+// build.gradle.kts
+dependencies {
+    implementation("page.poli:poli-page-spring-boot-starter-webflux:0.13.0")
+}
+```
+
+The starter brings `spring-boot-starter-webflux` and the auto-configuration module with it.
+
+`PoliPageWebFluxAutoConfiguration` activates only in a reactive stack (`@ConditionalOnWebApplication(type = REACTIVE)`). A hybrid app that also has `spring-boot-starter-web` on its classpath runs as a servlet application, so it gets the MVC variant. To force reactive, leave out `spring-boot-starter-web`.
+
+The auto-configuration registers `PoliPageReactiveResponses` with the `DataBufferFactory` of the context. Reactive Spring apps already have one (`NettyDataBufferFactory` for the default Netty server). The starter adds a `DefaultDataBufferFactory` only when the context has none, which mostly matters in unit tests.
+
+## Bytes
+
+`bytes(future, filename)` takes a `CompletableFuture<byte[]>` and answers a `Mono<ResponseEntity<byte[]>>`. Pass `true` as a third argument for an inline disposition.
+
+```java
+@GetMapping("/{id}.pdf")
+public Mono<ResponseEntity<byte[]>> invoice(@PathVariable String id) {
+    CompletableFuture<byte[]> future = client.renderAsync().pdf(RenderInput.builder()
+        .project("billing")
+        .template("invoice")
+        .data(Map.of("invoiceNumber", id))
+        .build());
+    return responses.bytes(future, "invoice-" + id + ".pdf");
+}
+```
+
+The helper wraps the future in `Mono.fromFuture(future, false)`. With `suppressCancel` set to `false`, cancelling the `Mono` (for example because the client disconnected) calls `cancel(true)` on the `CompletableFuture`, which releases the SDK's HTTP connection back to the pool.
+
+The headers are the same as the MVC variant's (see [Responses](../responses/)): `application/pdf`, an RFC 5987 `Content-Disposition`, `Cache-Control: private, no-store` and `X-Content-Type-Options: nosniff`.
+
+## Streamed PDF
+
+For a large PDF, `stream(future, filename, inline)` takes the `CompletableFuture<InputStream>` that `renderAsync().pdfStream(...)` returns, and answers a `Mono<ResponseEntity<Flux<DataBuffer>>>`. It reads the stream with `DataBufferUtils.readInputStream(...)` in 8 KB buffers, into the `DataBufferFactory` it was built with:
+
+```java
+@GetMapping("/invoices/{id}.pdf")
+public Mono<ResponseEntity<Flux<DataBuffer>>> invoice(@PathVariable String id) {
+    CompletableFuture<InputStream> future = client.renderAsync().pdfStream(RenderInput.builder()
+        .project("billing")
+        .template("invoice")
+        .data(Map.of("invoiceNumber", id))
+        .build());
+
+    return responses.stream(future, "invoice-" + id + ".pdf", false);
+}
+```
+
+The two-argument `stream(future, filename)` is the same with `inline` set to `false`. If you have a measured reason to want bigger buffers, write your own helper with `DataBufferUtils.readInputStream(() -> stream, factory, 32_768)`, and benchmark first.
+
+## Preview and redirect
+
+The helper has the same four-builder surface as MVC. `previewFromDocument` takes the future of `documentsAsync().preview(id)`, and `documentRedirect` takes the future of `documentsAsync().get(id)`:
+
+```java
+@GetMapping("/{id}/preview")
+public Mono<ResponseEntity<String>> preview(@PathVariable String id) {
+    return responses.previewFromDocument(client.documentsAsync().preview(id));
+}
+
+@GetMapping("/{id}/download")
+public Mono<ResponseEntity<Void>> download(@PathVariable String id) {
+    return responses.documentRedirect(client.documentsAsync().get(id));
+}
+```
+
+## Compose with other reactive sources
+
+```java
+@GetMapping("/{id}/report.pdf")
+public Mono<ResponseEntity<byte[]>> report(@PathVariable String id) {
+    Mono<Account> account = accountService.findById(id);
+    Mono<List<Transaction>> txns = transactionService.recent(id);
+
+    return Mono.zip(account, txns)
+        .flatMap(tuple -> {
+            CompletableFuture<byte[]> pdf = client.renderAsync().pdf(RenderInput.builder()
+                .project("billing")
+                .template("invoice")
+                .data(Map.of(
+                    "account", tuple.getT1(),
+                    "transactions", tuple.getT2()))
+                .build());
+            return responses.bytes(pdf, "invoice-" + id + ".pdf");
+        });
+}
+```
+
+Three concurrent I/Os, and the response is flushed when all three complete, with no thread blocked.
+
+## Functional routing
+
+Router functions work the same way. The helper answers a `Mono<ResponseEntity<byte[]>>`, and two lines of glue adapt it to a `Mono<ServerResponse>`:
+
+```java
+@Configuration
+public class PoliPageRoutes {
+
+    @Bean
+    RouterFunction<ServerResponse> routes(
+            PoliPageClient client,
+            PoliPageReactiveResponses responses) {
+        return route(GET("/invoice.pdf"), req -> {
+            CompletableFuture<byte[]> pdf = client.renderAsync().pdf(RenderInput.builder()
+                .project("billing")
+                .template("invoice")
+                .data(Map.of("invoiceNumber", req.queryParam("number").orElse("INV-1")))
+                .build());
+
+            return responses.bytes(pdf, "invoice.pdf")
+                .flatMap(entity -> ServerResponse.status(entity.getStatusCode())
+                    .headers(h -> h.putAll(entity.getHeaders()))
+                    .bodyValue(entity.getBody()));
+        });
+    }
+}
+```
+
+## Errors
+
+The WebFlux starter registers `PoliPageWebFluxExceptionHandler`, a `@RestControllerAdvice`, that answers an SDK error from an annotated controller (or a failed `Mono`) with the same JSON as the MVC handler. WebFlux clears the content headers before it runs an `@ExceptionHandler`, so PDF headers set before the error never reach the answer. A router function is not an annotated controller, so the advice does not cover it: see [Errors](../../production/errors/).
+
+## Gotchas
+
+- **Cancelling does not refund the quota.** A client that cancels the `Mono` mid-render releases the local HTTP connection, because the `CompletableFuture` is `cancel(true)`'d, but the render has already started on the server and counts against your quota. Cancellation is for resource cleanup, not cost avoidance.
+- **Never hard-code the `DataBufferFactory`.** It varies by reactive server (Netty by default, Jetty, Undertow, Tomcat). Inject it, or use the bean the starter wires into the helper.
+- **Do not wrap the blocking facade.** `Mono.fromCallable(() -> client.render()...)` with `subscribeOn(boundedElastic)` works, but it ties up a thread per concurrent render, which is what WebFlux is meant to avoid. Use `renderAsync()` directly.
+- **Security context propagation is opt-in.** `ReactorContextWebFilter`, registered by `spring-security-webflux`, carries the security context through Reactor's `Context`. Without it, `ReactiveSecurityContextHolder.getContext()` is empty inside the `flatMap`. Check before you rely on it for auditing.
+- **Events still reach `@EventListener`.** The retry and error bridge runs on the SDK's own threads, not on Reactor schedulers. Your `@EventListener` methods run as usual, so do not subscribe to the events from inside a reactive pipeline.
+
+<Aside type="note">
+`PoliPageReactiveResponses` is the WebFlux counterpart of `PoliPageResponses`. The class, the futures it takes and the types it returns differ. The headers do not.
+</Aside>
+
+## Example
+
+```java
+@RestController
+@RequestMapping("/invoices")
+public class InvoiceController {
+
+    private final PoliPageClient client;
+    private final PoliPageReactiveResponses responses;
+
+    public InvoiceController(PoliPageClient client, PoliPageReactiveResponses responses) {
+        this.client = client;
+        this.responses = responses;
+    }
+
+    @GetMapping("/{id}.pdf")
+    public Mono<ResponseEntity<byte[]>> invoice(@PathVariable String id) {
+        CompletableFuture<byte[]> future = client.renderAsync().pdf(RenderInput.builder()
+            .project("billing")
+            .template("invoice")
+            .data(Map.of("invoiceNumber", id))
+            .build());
+        return responses.bytes(future, "invoice-" + id + ".pdf");
+    }
+}
+```
+
+## See also
+
+- [Responses](../responses/)
+- [Client access](../client-access/)
+- [API reference](../../reference/api/)

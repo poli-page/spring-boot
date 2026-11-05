@@ -1,0 +1,206 @@
+---
+title: Responses
+description: Return PDFs, streamed PDFs, stored-document HTML previews and presigned-URL redirects from Spring MVC with PoliPageResponses.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+`PoliPageResponses`, in `page.poli.sdk.spring.web`, is the stateless helper the MVC starter registers as a bean. Returning a PDF from a controller is easy to get wrong: a missing `Content-Type` makes browsers show an octet stream, a hand-built `Content-Disposition` mangles non-ASCII names, and a cacheable response lets an intermediary keep an invoice with personal data. The helper sets the headers right by construction. It has four builders, `bytes`, `stream`, `preview` and `documentRedirect`, which mirror the SDK's `render()` and `documents()` facades.
+
+Inject `PoliPageClient` and `PoliPageResponses`, call the SDK, and pass the result to the matching builder. Spring serializes the returned `ResponseEntity` as it would any other. WebFlux apps use `PoliPageReactiveResponses`: see [WebFlux](../webflux/).
+
+## PDF bytes
+
+`bytes(pdf, filename)` answers a `ResponseEntity<byte[]>` for a PDF in memory:
+
+```java
+@GetMapping(value = "/{id}.pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+public ResponseEntity<byte[]> invoice(@PathVariable String id) {
+    byte[] pdf = client.render().pdf(RenderInput.builder()
+        .project("billing")
+        .template("invoice")
+        .data(Map.of("invoiceNumber", id))
+        .build());
+    return responses.bytes(pdf, "invoice-" + id + ".pdf");
+}
+```
+
+The response carries these headers:
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/pdf
+Content-Length: 12345
+Content-Disposition: attachment; filename="invoice-123.pdf"
+Cache-Control: private, no-store
+X-Content-Type-Options: nosniff
+```
+
+`bytes(pdf, filename, true)` flips the disposition to `inline`, so the browser renders the PDF in its tab instead of downloading it:
+
+```java
+return responses.bytes(pdf, "preview.pdf", true);
+```
+
+The header becomes `Content-Disposition: inline; filename="preview.pdf"`.
+
+### Non-ASCII filenames
+
+The helper builds `Content-Disposition` per RFC 6266 and RFC 8187. It strips control characters (CR, LF, TAB, DEL and the C1 range), escapes `\` and `"` as quoted pairs, and gives a non-ASCII name an ASCII fallback (`?` for each non-ASCII character) plus a UTF-8 percent-encoded `filename*`:
+
+```java
+return responses.bytes(pdf, "facture-été.pdf");
+```
+
+```http
+Content-Disposition: attachment; filename="facture-?t?.pdf"; filename*=UTF-8''facture-%C3%A9t%C3%A9.pdf
+```
+
+The helper does not use Spring's `ContentDisposition.filename(name, UTF_8)`. That method emits an RFC 2047 `=?UTF-8?Q?…?=` fallback in which `"` and `\` are not escaped, so a crafted filename could break out of the quoted string. Every modern browser reads `filename*`, and older clients fall back to the ASCII `filename`.
+
+## Streamed PDF
+
+`Render.pdf(...)` returns a `byte[]`, which is fine for a one-page invoice and wasteful for a 50-page report. `Render.pdfStream(...)` returns an `InputStream` that reads from the presigned URL on demand, and `stream(inputStream, filename)` adapts it to a `ResponseEntity<StreamingResponseBody>` with the same PDF headers. Bytes flow from the SDK to the client in chunks, without sitting in the heap. Use it when buffering a large PDF would risk running out of memory, or when you want to start flushing bytes early.
+
+```java
+@GetMapping("/invoices/{id}.pdf")
+public ResponseEntity<StreamingResponseBody> invoice(@PathVariable String id) {
+    InputStream stream = client.render().pdfStream(RenderInput.builder()
+        .project("billing")
+        .template("invoice")
+        .data(Map.of("invoiceNumber", id))
+        .build());
+    return responses.stream(stream, "invoice-" + id + ".pdf");
+}
+```
+
+Pass `true` as a third argument to render the PDF inline. `stream(...)` sets no `Content-Length`, so the body uses chunked transfer encoding.
+
+The helper owns the stream. Its body lambda is a `try-with-resources` around `InputStream.transferTo(OutputStream)`, so the SDK connection is released after the last chunk, and also when the client disconnects mid-download:
+
+```java
+StreamingResponseBody body = output -> {
+    try (InputStream owned = stream) {
+        owned.transferTo(output);
+    }
+};
+```
+
+Spring MVC treats `StreamingResponseBody` as a deferred body. The controller method returns at once with the headers, and Spring runs the lambda on the executor configured for async support. While it runs, the request thread is free, so large downloads do not pin a thread per client.
+
+### Configure the executor and the timeout
+
+For many concurrent downloads, give MVC a pooled executor for async requests:
+
+```java
+@Configuration
+public class AsyncConfig implements WebMvcConfigurer {
+
+    @Override
+    public void configureAsyncSupport(AsyncSupportConfigurer configurer) {
+        configurer.setTaskExecutor(streamingExecutor());
+    }
+
+    @Bean
+    ThreadPoolTaskExecutor streamingExecutor() {
+        ThreadPoolTaskExecutor ex = new ThreadPoolTaskExecutor();
+        ex.setCorePoolSize(8);
+        ex.setMaxPoolSize(32);
+        ex.setQueueCapacity(0); // reject new tasks when all 32 threads are busy
+        ex.setThreadNamePrefix("poli-stream-");
+        ex.initialize();
+        return ex;
+    }
+}
+```
+
+With `setQueueCapacity(0)`, the executor rejects new work when every thread is busy, so a request fails fast instead of queueing without bound.
+
+Spring MVC's async request timeout depends on the servlet container (Tomcat's default is 30 s). A large PDF on a slow connection can exceed it. Raise it globally:
+
+```yaml
+spring:
+  mvc:
+    async:
+      request-timeout: 5m
+```
+
+## HTML preview
+
+`client.documents().preview(documentId)` returns the stored HTML of a document you rendered with `render().document(...)`, as a `DocumentPreviewResult`. `preview(result)` wraps it for the browser:
+
+```java
+@GetMapping("/documents/{documentId}/preview")
+public ResponseEntity<String> preview(@PathVariable String documentId) {
+    DocumentPreviewResult preview = client.documents().preview(documentId);
+    return responses.preview(preview);
+}
+```
+
+The answer has `Content-Type: text/html; charset=utf-8` and `Cache-Control: private, no-store`. There is no render-time preview: render a document, then preview it by id.
+
+## Redirect to a stored document
+
+For a document you stored with `render().document(...)`, redirect the user to its presigned PDF URL instead of streaming through your app. `documentRedirect(descriptor)` answers a `302` with the descriptor's `presignedPdfUrl` as `Location`:
+
+```java
+@GetMapping("/{id}/download")
+public ResponseEntity<Void> download(@PathVariable String id) {
+    DocumentDescriptor doc = client.documents().get(id);
+    return responses.documentRedirect(doc);
+}
+```
+
+```http
+HTTP/1.1 302 Found
+Location: https://documents.poli.page/abc/...?signature=...
+Cache-Control: private, no-store
+```
+
+The presigned URL has its own short expiry (typically about 15 minutes). The redirect itself is never cacheable, so an intermediary cannot hand a stale URL to another user.
+
+## Gotchas
+
+- **Do not set headers on top of the helper's output.** Calling `.headers(h -> h.setContentDisposition(...))` on the returned `ResponseEntity` replaces the helper's encoding and can leave conflicting headers. Add extra headers, such as `X-Request-Id`, without touching the ones the helper sets.
+- **`stream(...)` needs an `InputStream` you own.** The helper closes it once the body is written. Do not reuse it for another response, and do not close it yourself: it is already closed when control returns to your method. Closing it early raises an `IOException` inside `transferTo` and truncates the response.
+- **Client disconnects surface as `IOException` in the body lambda.** Spring marks the async request complete with an error, and the helper still closes the SDK stream, so no connection leaks. Your access logs show truncated `200` entries.
+- **The body lambda runs on another thread.** `SecurityContextHolder` does not follow unless Spring Security's `WebAsyncManagerIntegrationFilter` and an inheritable strategy are set up. Read anything you need from the security context before you return the `ResponseEntity`.
+- **Do not buffer a streamed response.** A filter that wraps the response to log its body, such as `ContentCachingResponseWrapper`, holds the whole PDF in memory and defeats streaming. Log metadata instead: status, request ID, length when known.
+- **Do not compute `Content-Length` for a stream.** Reading the stream into memory first defeats its purpose.
+
+<Aside type="caution">
+`Cache-Control` is `private, no-store` by design. Rendered documents usually hold personal data: names, account numbers, totals. If you really need a public, cacheable PDF, such as a generic terms of service, build the `ResponseEntity` by hand instead of using the helper.
+</Aside>
+
+## Example
+
+```java
+@RestController
+@RequestMapping("/invoices")
+public class InvoiceController {
+
+    private final PoliPageClient client;
+    private final PoliPageResponses responses;
+
+    public InvoiceController(PoliPageClient client, PoliPageResponses responses) {
+        this.client = client;
+        this.responses = responses;
+    }
+
+    @GetMapping(value = "/{id}.pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> invoice(@PathVariable String id) {
+        byte[] pdf = client.render().pdf(RenderInput.builder()
+            .project("billing")
+            .template("invoice")
+            .data(Map.of("invoiceNumber", id))
+            .build());
+        return responses.bytes(pdf, "invoice-" + id + ".pdf");
+    }
+}
+```
+
+## See also
+
+- [WebFlux](../webflux/)
+- [Errors](../../production/errors/)
+- [API reference](../../reference/api/)

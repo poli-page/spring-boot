@@ -1,0 +1,18 @@
+---
+title: Poli Page Spring Boot integration
+description: Render Poli Page documents from Spring Boot controllers with the poli-page-spring-boot-starter and its WebFlux sibling.
+template: splash
+hero:
+  tagline: Render Poli Page documents as Spring Boot controller responses.
+  actions:
+    - { text: Quick start, link: /spring-boot/getting-started/quick-start/, icon: rocket }
+    - { text: API reference, link: /spring-boot/reference/api/, icon: open-book }
+---
+
+import { CardGrid, Card } from '@astrojs/starlight/components';
+
+<CardGrid>
+  <Card title="Quick start" icon="rocket">Add the starter, set your API key and return a PDF from a controller.</Card>
+  <Card title="Concepts" icon="puzzle">`poli-page.*` properties, the auto-configured client, MVC and WebFlux responses, Actuator.</Card>
+  <Card title="API reference" icon="open-book">Both starters and the auto-configuration module, on one page.</Card>
+</CardGrid>
