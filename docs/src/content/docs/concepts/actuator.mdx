@@ -18,7 +18,7 @@ Add Actuator if your app does not have it yet:
 implementation("org.springframework.boot:spring-boot-starter-actuator")
 ```
 
-The auto-configuration then registers `PoliPageHealthIndicator`, gated on `@ConditionalOnClass(HealthIndicator.class)` and on `poli-page.health.enabled`. It resolves `/v1/health` against the host of `poli-page.base-url` (or `https://api.poli.page`), waits at most 2 seconds for the probe, and reports:
+The auto-configuration then registers `PoliPageHealthIndicator`, gated on `@ConditionalOnClass(HealthIndicator.class)` and on `poli-page.health.enabled`. It probes `/v1/health` under `poli-page.base-url` (or `https://api.poli.page`), waits at most 2 seconds for the probe, and reports:
 
 - `UP` on HTTP `200`, with the `baseUrl` detail set to the host name.
 - `DOWN` on any other status, with the status code in the `status` detail.
@@ -178,7 +178,7 @@ A reasonable starting policy: scrape `/actuator/health` with Prometheus's HTTP p
 - **Health and metrics are independent.** `poli-page.health.enabled=false` does not disable metrics, and `poli-page.metrics.enabled=false` does not disable health.
 
 <Aside type="note">
-The probe resolves `/v1/health` against the host of `poli-page.base-url`, so a path prefix on a custom base URL is not kept for the probe.
+The probe appends `/v1/health` to `poli-page.base-url` the way the SDK appends its own paths, so a path prefix is kept: with `https://proxy.example.com/poli/`, it probes `https://proxy.example.com/poli/v1/health`.
 </Aside>
 
 ## Example
