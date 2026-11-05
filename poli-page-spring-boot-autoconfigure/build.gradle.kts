@@ -7,6 +7,10 @@ description = "Common auto-configuration for the Poli Page Spring Boot starter (
 dependencies {
     api("page.poli:sdk:0.13.0")
     api("org.springframework.boot:spring-boot-autoconfigure")
+    // Bean Validation for PoliPageProperties. Not optional: without a provider, Spring Boot skips
+    // the @Validated binding checks (the app starts with request-timeout=700s), and an app that
+    // reads PoliPageProperties gets javac -Xlint:classfile warnings for the unresolved constraints.
+    api("org.springframework.boot:spring-boot-starter-validation")
 
     // The error handler; both starters bring spring-web.
     compileOnly("org.springframework:spring-web")
@@ -14,15 +18,11 @@ dependencies {
     // Optional dependencies — beans are @ConditionalOnClass so consumers without these still get a working starter.
     compileOnly("org.springframework.boot:spring-boot-actuator")
     compileOnly("io.micrometer:micrometer-core")
-    compileOnly("jakarta.validation:jakarta.validation-api")
-    compileOnly("org.hibernate.validator:hibernate-validator")
-    compileOnly("org.springframework.boot:spring-boot-starter-validation")
 
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
     compileOnly("org.springframework.boot:spring-boot-configuration-processor")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
-    testImplementation("org.springframework.boot:spring-boot-starter-validation")
     testImplementation("org.springframework.boot:spring-boot-starter-actuator")
     testImplementation("io.micrometer:micrometer-core")
     testImplementation("org.springframework:spring-web")

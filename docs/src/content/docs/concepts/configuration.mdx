@@ -64,7 +64,7 @@ Use whichever spelling is idiomatic for the source. Deployment platforms such as
 
 ## Validation
 
-The record is validated at startup with Jakarta Bean Validation. Bad input fails the boot with a `BindValidationException`, not at the first call:
+The record is validated at startup with Jakarta Bean Validation. The starters bring `spring-boot-starter-validation`, so the check runs whether or not your app declares Bean Validation itself. Bad input fails the boot with a `BindValidationException`, not at the first call:
 
 ```text
 ***************************
@@ -146,7 +146,7 @@ The module ships `META-INF/spring-configuration-metadata.json`, built from the r
 ## Gotchas
 
 <Aside type="caution">
-`base-url` must be absolute. The SDK builder rejects a relative URI such as `/v1` with an `IllegalArgumentException` ("baseUrl must be absolute, got: …"), and the application context fails when the client bean is built. The health indicator also resolves `/v1/health` against the host of this URL, so a path prefix is not kept for the probe.
+`base-url` must be absolute. The SDK builder rejects a relative URI such as `/v1` with an `IllegalArgumentException` ("baseUrl must be absolute, got: …"), and the application context fails when the client bean is built. A path prefix is kept, by the SDK's requests and by the health probe alike: with `https://proxy.example.com/poli/`, the probe calls `https://proxy.example.com/poli/v1/health`.
 </Aside>
 
 - **The toggles are opt-out.** `poli-page.health.enabled`, `poli-page.metrics.enabled`, `poli-page.events.enabled` and `poli-page.error-handler.enabled` default to `true`. Omitting one is the same as `true`. Set it to `false` to drop the matching bean.
