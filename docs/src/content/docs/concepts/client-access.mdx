@@ -49,7 +49,7 @@ The client bean method passes only the options you set to the SDK builder, then 
 PoliPageClient.Builder builder = PoliPageClient.builder().apiKey(props.apiKey());
 if (props.baseUrl() != null) builder.baseUrl(props.baseUrl());
 if (props.requestTimeout() != null) builder.requestTimeout(props.requestTimeout());
-if (props.retries().maxAttempts() != null) builder.maxRetries(props.retries().maxAttempts());
+if (props.retries().maxRetries() != null) builder.maxRetries(props.retries().maxRetries());
 if (props.retries().delay() != null) builder.retryDelay(props.retries().delay());
 bridge.ifAvailable(eb -> {
     builder.onRetry(eb::onRetry);

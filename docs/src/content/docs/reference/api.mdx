@@ -44,7 +44,8 @@ public record PoliPageProperties(
     @Valid @DefaultValue ErrorHandler errorHandler) {
 
   public record Retries(
-      @Nullable @Min(0) @Max(10) Integer maxAttempts,
+      @Nullable @Min(0) @Max(10) Integer maxRetries,
+      @Nullable Integer maxAttempts,
       @Nullable @DurationRange(minMillis = 0L, maxMillis = 30_000L) Duration delay) {}
 
   public record Health(@DefaultValue("true") boolean enabled) {}
@@ -238,7 +239,8 @@ public class PoliPageWebFluxExceptionHandler extends PoliPageExceptionHandler {
 | `poli-page.api-key` | `String` | required |
 | `poli-page.base-url` | `URI` | SDK default |
 | `poli-page.request-timeout` | `Duration` | SDK default |
-| `poli-page.retries.max-attempts` | `Integer` | SDK default |
+| `poli-page.retries.max-retries` | `Integer` | SDK default |
+| `poli-page.retries.max-attempts` | `Integer` | deprecated alias of `max-retries` |
 | `poli-page.retries.delay` | `Duration` | SDK default |
 | `poli-page.health.enabled` | `boolean` | `true` |
 | `poli-page.metrics.enabled` | `boolean` | `true` |

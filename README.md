@@ -144,7 +144,7 @@ You bind options under the `poli-page.*` prefix. The starter validates them at s
 | `api-key` | _required_ | API key, `pp_{env}_{32 hex}` (`pp_sandbox_…`, `pp_live_…`). Must be present and not blank; any other value starts the app with one warning (see [API keys](#api-keys)). |
 | `base-url` | SDK default | Override the API origin (must be absolute). |
 | `request-timeout` | SDK default (60s) | Per-attempt request timeout (`Duration`, 1s ≤ t ≤ 10min). |
-| `retries.max-attempts` | SDK default (2) | Retry budget (integer, 0–10). |
+| `retries.max-retries` | SDK default (2) | Retries after the first attempt (integer, 0–10), so a call makes at most `max-retries + 1` attempts. `retries.max-attempts` is the deprecated former name, same meaning. |
 | `retries.delay` | SDK default (500ms) | Base delay for exponential backoff (`Duration`, 0 ≤ t ≤ 30s). |
 | `health.enabled` | `true` | Register the Actuator `HealthIndicator` probing `/v1/health`. |
 | `metrics.enabled` | `true` | Register the Micrometer `MeterBinder` (retry/error counters and timer). |
@@ -157,7 +157,7 @@ poli-page:
   api-key: ${POLI_PAGE_API_KEY}
   request-timeout: 30s
   retries:
-    max-attempts: 4
+    max-retries: 4
 ```
 
 You inspect the resolved bean graph with `/actuator/conditions` (when Actuator is on the classpath).

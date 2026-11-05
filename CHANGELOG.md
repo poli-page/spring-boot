@@ -4,6 +4,12 @@ All notable changes to `page.poli:poli-page-spring-boot-starter` (and the siblin
 
 ## [Unreleased]
 
+### Added
+- `poli-page.retries.max-retries`: the number of retries after the first attempt (0 to 10), passed to the SDK as `maxRetries`. Env var `POLI_PAGE_RETRIES_MAX_RETRIES`.
+
+### Deprecated
+- `poli-page.retries.max-attempts` is renamed `poli-page.retries.max-retries`. It never counted attempts: it was the SDK's `maxRetries`, so `3` made up to 4 attempts. The old property keeps its meaning and works, with a warning in the log and a deprecation entry in the configuration metadata; setting both to different values fails the startup. In `PoliPageProperties.Retries`, `maxRetries` is the new component and `maxAttempts` stays as a deprecated one.
+
 ## [0.13.0] - 2026-11-04
 
 First release on Maven Central: `page.poli:poli-page-spring-boot-starter`, `page.poli:poli-page-spring-boot-starter-webflux` and the `page.poli:poli-page-spring-boot-autoconfigure` module they share. It requires `page.poli:sdk` 0.13 and passes the Poli Page API contract v0.13.0. The starters share their major.minor with the Poli Page API, so their first version is 0.13.0; a 0.11.0 was prepared and never published, and neither was the 0.1.0 development line. The Breaking, Removed and Fixed entries below are relative to those development snapshots.

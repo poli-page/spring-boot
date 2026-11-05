@@ -16,9 +16,19 @@
       "description": "Per-attempt request timeout. Falls back to the SDK's default (60 s) when unset."
     },
     {
+      "name": "poli-page.retries.max-retries",
+      "type": "java.lang.Integer",
+      "description": "Number of retries on top of the initial request, so a call makes at most max-retries + 1 attempts. Set to 0 to disable retries. Falls back to the SDK's default (2) when unset."
+    },
+    {
       "name": "poli-page.retries.max-attempts",
       "type": "java.lang.Integer",
-      "description": "Number of retries on top of the initial request. Set to 0 to disable retries. Falls back to the SDK's default (2) when unset."
+      "description": "Deprecated former name of poli-page.retries.max-retries, with the same meaning.",
+      "deprecation": {
+        "level": "warning",
+        "replacement": "poli-page.retries.max-retries",
+        "reason": "It is the number of retries after the first attempt, not the number of attempts."
+      }
     },
     {
       "name": "poli-page.retries.delay",
