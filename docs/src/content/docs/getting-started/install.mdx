@@ -22,20 +22,20 @@ Pick the artifact that matches your web stack. The MVC starter brings `spring-bo
 <dependency>
     <groupId>page.poli</groupId>
     <artifactId>poli-page-spring-boot-starter</artifactId>
-    <version>0.13.1</version>
+    <version>0.13.2</version>
 </dependency>
 ```
 
 With Gradle (Kotlin DSL):
 
 ```kotlin
-implementation("page.poli:poli-page-spring-boot-starter:0.13.1")
+implementation("page.poli:poli-page-spring-boot-starter:0.13.2")
 ```
 
 For a reactive WebFlux app, swap the artifact id:
 
 ```kotlin
-implementation("page.poli:poli-page-spring-boot-starter-webflux:0.13.1")
+implementation("page.poli:poli-page-spring-boot-starter-webflux:0.13.2")
 ```
 
 Both starters depend on `page.poli:sdk:0.13.0`, which comes with them. To take a later `0.13.x` patch of the SDK before the starter moves to it, declare `page.poli:sdk` with that version in your own build. An SDK of another minor (`0.14.x`) goes with the starter of that minor.
@@ -76,7 +76,7 @@ poli-page:
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("page.poli:poli-page-spring-boot-starter:0.13.1")
+    implementation("page.poli:poli-page-spring-boot-starter:0.13.2")
 }
 ```
 
