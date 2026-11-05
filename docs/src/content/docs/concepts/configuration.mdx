@@ -16,7 +16,8 @@ The properties bind to the `PoliPageProperties` record in `poli-page-spring-boot
 | `poli-page.api-key` | `String` | required | The API key, `pp_{env}_{32 hex}` (`pp_sandbox_…`, `pp_live_…`, `pp_staging_…`). The key selects the environment. A missing or blank key fails startup. Any other value starts the app, with one warning when it does not look like a key. |
 | `poli-page.base-url` | `URI` | SDK default (`https://api.poli.page`) | Overrides the API origin, for staging or self-hosted deployments. Must be absolute. |
 | `poli-page.request-timeout` | `Duration` | SDK default (60 s) | Per-attempt request timeout. Between 1 s and 10 min. |
-| `poli-page.retries.max-attempts` | `Integer` | SDK default (2) | Retries on top of the initial request. `0` disables retries. Between 0 and 10. |
+| `poli-page.retries.max-retries` | `Integer` | SDK default (2) | Retries on top of the initial request, so a call makes at most `max-retries + 1` attempts. `0` disables retries. Between 0 and 10. |
+| `poli-page.retries.max-attempts` | `Integer` | none | Deprecated former name of `max-retries`, with the same meaning. It fills `max-retries` and logs a warning; setting both to different values fails the startup. |
 | `poli-page.retries.delay` | `Duration` | SDK default (500 ms) | Base delay for the exponential backoff. Jitter and `Retry-After` capping happen inside the SDK. The starter's validation accepts 0 s to 30 s, but the SDK builder rejects `0s` (and negatives): see the note below. |
 | `poli-page.health.enabled` | `boolean` | `true` | Registers the Actuator `HealthIndicator` that probes `/v1/health`. |
 | `poli-page.metrics.enabled` | `boolean` | `true` | Registers the Micrometer `MeterBinder` (retry and error counters, retry timer). |
@@ -39,7 +40,8 @@ public record PoliPageProperties(
     @Valid @DefaultValue ErrorHandler errorHandler) {
 
   public record Retries(
-      @Nullable @Min(0) @Max(10) Integer maxAttempts,
+      @Nullable @Min(0) @Max(10) Integer maxRetries,
+      @Nullable Integer maxAttempts,
       @Nullable @DurationRange(minMillis = 0L, maxMillis = 30_000L) Duration delay) {}
 
   public record Health(@DefaultValue("true") boolean enabled) {}
@@ -56,7 +58,7 @@ Every option except `api-key` is nullable. The auto-configuration checks each on
 Spring Boot's relaxed binding lets one property surface under several spellings:
 
 - `POLI_PAGE_API_KEY` (environment variable) maps to `poli-page.api-key` (YAML) and `poliPage.apiKey` (Java property).
-- `POLI_PAGE_RETRIES_MAX_ATTEMPTS` maps to `poli-page.retries.max-attempts` and `poliPage.retries.maxAttempts`.
+- `POLI_PAGE_RETRIES_MAX_RETRIES` maps to `poli-page.retries.max-retries` and `poliPage.retries.maxRetries`.
 
 Use whichever spelling is idiomatic for the source. Deployment platforms such as Heroku, Cloud Run and ECS inject environment variables, while `application.yml` lives in source. Stick with UPPER_SNAKE_CASE for environment variables: Linux environment variables are case-sensitive, Windows ones are not.
 
@@ -88,7 +90,7 @@ The other rejections:
 - `request-timeout: 0s` fails the `DurationRange` check ("must be a Duration between 1000 ms and 600000 ms").
 - `request-timeout: 700s` fails the same check, because 700000 ms is over the upper bound of 600000 ms.
 - `retries.delay: 0s` passes the binding, because the starter's range starts at 0, but the SDK's `retryDelay` must be positive. The context then fails when the `PoliPageClient` bean is built, with an `IllegalArgumentException` ("retryDelay must be positive, got: PT0S"). Use a value between 1 ms and 30 s.
-- `retries.max-attempts: -1` fails `Min`, and `retries.max-attempts: 11` fails `Max`.
+- `retries.max-retries: -1` fails `Min`, and `retries.max-retries: 11` fails `Max`.
 
 `@DurationRange` is shipped by the starter, in `page.poli.sdk.spring.validation`, because Spring Boot has no Duration-range constraint. It takes `minMillis` and `maxMillis`, so any unit you write in `application.yml` (`s`, `m`, `h`) is honored consistently.
 
@@ -126,7 +128,7 @@ poli-page:
 poli-page:
   request-timeout: 90s
   retries:
-    max-attempts: 4
+    max-retries: 4
 ```
 
 ## Keep the API key out of the repository
@@ -159,7 +161,7 @@ poli-page:
   base-url: https://api.poli.page
   request-timeout: 30s
   retries:
-    max-attempts: 4
+    max-retries: 4
     delay: 750ms
   health:
     enabled: true

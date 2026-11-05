@@ -7,7 +7,10 @@ import jakarta.validation.constraints.NotBlank;
 import java.net.URI;
 import java.time.Duration;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.ConstructorBinding;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.validation.annotation.Validated;
 import page.poli.sdk.spring.validation.DurationRange;
@@ -48,12 +51,48 @@ public record PoliPageProperties(
   /**
    * Retry-policy options.
    *
-   * @param maxAttempts maximum retries on top of the initial request — {@code 0} disables retries
+   * @param maxRetries maximum retries on top of the initial request, so a call makes at most {@code
+   *     maxRetries + 1} attempts — {@code 0} disables retries
+   * @param maxAttempts deprecated former name of {@code maxRetries}, with the same meaning (it
+   *     never counted attempts); it fills {@code maxRetries} and logs a warning
    * @param delay base delay for the SDK's exponential backoff
    */
   public record Retries(
-      @Nullable @Min(0) @Max(10) Integer maxAttempts,
-      @Nullable @DurationRange(minMillis = 0L, maxMillis = 30_000L) Duration delay) {}
+      @Nullable @Min(0) @Max(10) Integer maxRetries,
+      @Nullable Integer maxAttempts,
+      @Nullable @DurationRange(minMillis = 0L, maxMillis = 30_000L) Duration delay) {
+
+    /** Without the deprecated {@code maxAttempts}; the shape this record had before it. */
+    public Retries(@Nullable Integer maxRetries, @Nullable Duration delay) {
+      this(maxRetries, null, delay);
+    }
+
+    private static final Logger LOG = LoggerFactory.getLogger(Retries.class);
+
+    /**
+     * Resolves the deprecated {@code maxAttempts} into {@code maxRetries}.
+     *
+     * @throws IllegalArgumentException when both are set to different values
+     */
+    @ConstructorBinding
+    public Retries {
+      if (maxAttempts != null) {
+        if (maxRetries != null && !maxRetries.equals(maxAttempts)) {
+          throw new IllegalArgumentException(
+              "poli-page.retries.max-retries ("
+                  + maxRetries
+                  + ") and its deprecated alias poli-page.retries.max-attempts ("
+                  + maxAttempts
+                  + ") are both set, to different values. Keep poli-page.retries.max-retries only.");
+        }
+        LOG.warn(
+            "poli-page.retries.max-attempts is deprecated: it is the number of retries after the"
+                + " first attempt, not of attempts. Rename it to poli-page.retries.max-retries"
+                + " (same value).");
+        maxRetries = maxAttempts;
+      }
+    }
+  }
 
   /**
    * Actuator {@code HealthIndicator} toggle. Defaults to {@code true}.

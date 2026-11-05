@@ -7,14 +7,18 @@ import static page.poli.sdk.spring.TestKeys.SECRET;
 import java.net.URI;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.autoconfigure.validation.ValidationAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.core.env.StandardEnvironment;
 
+@ExtendWith(OutputCaptureExtension.class)
 class PoliPagePropertiesTest {
 
   private final ApplicationContextRunner runner =
@@ -41,7 +45,7 @@ class PoliPagePropertiesTest {
               assertThat(props.apiKey()).isEqualTo(SANDBOX_KEY);
               assertThat(props.baseUrl()).isNull();
               assertThat(props.requestTimeout()).isNull();
-              assertThat(props.retries().maxAttempts()).isNull();
+              assertThat(props.retries().maxRetries()).isNull();
               assertThat(props.retries().delay()).isNull();
               assertThat(props.health().enabled()).isTrue();
               assertThat(props.metrics().enabled()).isTrue();
@@ -70,7 +74,7 @@ class PoliPagePropertiesTest {
             "poli-page.api-key=" + SANDBOX_KEY,
             "poli-page.base-url=https://api-staging.poli.page",
             "poli-page.request-timeout=45s",
-            "poli-page.retries.max-attempts=5",
+            "poli-page.retries.max-retries=5",
             "poli-page.retries.delay=2s",
             "poli-page.health.enabled=false",
             "poli-page.metrics.enabled=false",
@@ -80,7 +84,7 @@ class PoliPagePropertiesTest {
               PoliPageProperties props = context.getBean(PoliPageProperties.class);
               assertThat(props.baseUrl()).isEqualTo(URI.create("https://api-staging.poli.page"));
               assertThat(props.requestTimeout()).isEqualTo(Duration.ofSeconds(45));
-              assertThat(props.retries().maxAttempts()).isEqualTo(5);
+              assertThat(props.retries().maxRetries()).isEqualTo(5);
               assertThat(props.retries().delay()).isEqualTo(Duration.ofSeconds(2));
               assertThat(props.health().enabled()).isFalse();
               assertThat(props.metrics().enabled()).isFalse();
@@ -123,17 +127,69 @@ class PoliPagePropertiesTest {
   }
 
   @Test
-  void rejectsNegativeMaxAttempts() {
+  void rejectsNegativeMaxRetries() {
     runner
-        .withPropertyValues("poli-page.api-key=" + SANDBOX_KEY, "poli-page.retries.max-attempts=-1")
+        .withPropertyValues("poli-page.api-key=" + SANDBOX_KEY, "poli-page.retries.max-retries=-1")
         .run(context -> assertThat(context).hasFailed());
   }
 
   @Test
-  void rejectsMaxAttemptsAboveCap() {
+  void rejectsMaxRetriesAboveCap() {
+    runner
+        .withPropertyValues("poli-page.api-key=" + SANDBOX_KEY, "poli-page.retries.max-retries=11")
+        .run(context -> assertThat(context).hasFailed());
+  }
+
+  @Test
+  void deprecatedMaxAttemptsFillsMaxRetriesAndWarns(CapturedOutput output) {
+    runner
+        .withPropertyValues("poli-page.api-key=" + SANDBOX_KEY, "poli-page.retries.max-attempts=3")
+        .run(
+            context -> {
+              assertThat(context).hasNotFailed();
+              assertThat(context.getBean(PoliPageProperties.class).retries().maxRetries())
+                  .isEqualTo(3);
+            });
+    assertThat(output).contains("poli-page.retries.max-attempts is deprecated");
+  }
+
+  @Test
+  void maxRetriesDoesNotWarn(CapturedOutput output) {
+    runner
+        .withPropertyValues("poli-page.api-key=" + SANDBOX_KEY, "poli-page.retries.max-retries=3")
+        .run(context -> assertThat(context).hasNotFailed());
+    assertThat(output).doesNotContain("is deprecated");
+  }
+
+  @Test
+  void deprecatedMaxAttemptsIsRangeChecked() {
     runner
         .withPropertyValues("poli-page.api-key=" + SANDBOX_KEY, "poli-page.retries.max-attempts=11")
         .run(context -> assertThat(context).hasFailed());
+  }
+
+  @Test
+  void rejectsMaxRetriesAndMaxAttemptsWithDifferentValues() {
+    runner
+        .withPropertyValues(
+            "poli-page.api-key=" + SANDBOX_KEY,
+            "poli-page.retries.max-retries=1",
+            "poli-page.retries.max-attempts=3")
+        .run(
+            context -> {
+              assertThat(context).hasFailed();
+              assertThat(context.getStartupFailure()).hasStackTraceContaining("different values");
+            });
+  }
+
+  @Test
+  void acceptsMaxRetriesAndMaxAttemptsWithEqualValues() {
+    runner
+        .withPropertyValues(
+            "poli-page.api-key=" + SANDBOX_KEY,
+            "poli-page.retries.max-retries=3",
+            "poli-page.retries.max-attempts=3")
+        .run(context -> assertThat(context).hasNotFailed());
   }
 
   @Test

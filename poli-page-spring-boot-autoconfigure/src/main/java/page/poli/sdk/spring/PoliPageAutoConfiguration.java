@@ -68,8 +68,8 @@ public class PoliPageAutoConfiguration {
     if (props.requestTimeout() != null) {
       builder.requestTimeout(props.requestTimeout());
     }
-    if (props.retries().maxAttempts() != null) {
-      builder.maxRetries(props.retries().maxAttempts());
+    if (props.retries().maxRetries() != null) {
+      builder.maxRetries(props.retries().maxRetries());
     }
     if (props.retries().delay() != null) {
       builder.retryDelay(props.retries().delay());

@@ -4,6 +4,12 @@ All notable changes to `page.poli:poli-page-spring-boot-starter` (and the siblin
 
 ## [Unreleased]
 
+### Added
+- `poli-page.retries.max-retries`: the number of retries after the first attempt (0 to 10), passed to the SDK as `maxRetries`. Env var `POLI_PAGE_RETRIES_MAX_RETRIES`.
+
+### Deprecated
+- `poli-page.retries.max-attempts` is renamed `poli-page.retries.max-retries`. It never counted attempts: it was the SDK's `maxRetries`, so `3` made up to 4 attempts. The old property keeps its meaning and works, with a warning in the log and a deprecation entry in the configuration metadata; setting both to different values fails the startup. In `PoliPageProperties.Retries`, `maxRetries` is the new component and `maxAttempts` stays as a deprecated one.
+
 ### Fixed
 - The health indicator keeps a path prefix of `poli-page.base-url`, as the SDK does: with `https://proxy.example.com/poli/` it probes `https://proxy.example.com/poli/v1/health`. It probed `https://proxy.example.com/v1/health` before, so the status reflected the proxy host, not the API behind it.
 - The `poli-page.*` startup validation runs in every app. The autoconfigure module now depends on `spring-boot-starter-validation`; it was a compile-only dependency, so an app without Bean Validation of its own started with out-of-range values (`request-timeout=700s`, `retries.max-attempts=11`) and got javac `-Xlint:classfile` warnings, an error under `-Werror`, when its code used `PoliPageProperties`.
