@@ -124,16 +124,16 @@ public class InvoiceController {
     @GetMapping("/invoice/{id}.pdf")
     public ResponseEntity<byte[]> show(@PathVariable String id) {
         byte[] pdf = client.render().pdf(RenderInput.builder()
-            .project("invoices")
-            .template("default")
-            .data(Map.of("invoice_id", id))
+            .project("billing")
+            .template("invoice")
+            .data(Map.of("invoiceNumber", id))
             .build());
         return responses.bytes(pdf, "invoice-" + id + ".pdf");
     }
 }
 ```
 
-The key selects the environment whose published copy of the project is rendered; the input carries no version. Every Poli Page org comes pre-provisioned with the `getting-started` project's `welcome` template in `sandbox`, so swap `invoices`/`default` for `getting-started`/`welcome` to try it with a `pp_sandbox_…` key.
+The key selects the environment whose published copy of the project is rendered; the input carries no version. Every Poli Page org comes pre-provisioned with the `getting-started` project's `welcome` template in `sandbox`, so swap `billing`/`invoice` for `getting-started`/`welcome` to try it with a `pp_sandbox_…` key.
 
 ## Configuration
 
