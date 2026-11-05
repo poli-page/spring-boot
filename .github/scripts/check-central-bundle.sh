@@ -6,8 +6,10 @@
 #
 # The bundle must hold exactly the three published modules at <version>: for each, the jar, the
 # sources and javadoc jars, the POM and the Gradle module file, each with its md5/sha1/sha256/sha512
-# checksums and, when signed, its .asc signature (with checksums too). Any other file fails the
-# check: test fixtures, the example apps, a second version, maven-metadata.xml. Each main jar must
+# checksums and, when signed, its .asc signature. A signature has no checksum files: Central does
+# not want them ("`.asc` files don't need checksum files", central.sonatype.org/publish/requirements)
+# and Gradle 9.7+ no longer publishes them. Any other file fails the check: test fixtures, the
+# example apps, a second version, maven-metadata.xml, checksums of a signature. Each main jar must
 # also hold only classes and META-INF resources.
 set -euo pipefail
 
@@ -25,14 +27,13 @@ expected=()
 for m in "${modules[@]}"; do
   dir="page/poli/$m/$version"
   for f in "$m-$version.jar" "$m-$version-sources.jar" "$m-$version-javadoc.jar" "$m-$version.pom" "$m-$version.module"; do
-    files=("$f")
-    [[ $mode == signed ]] && files+=("$f.asc")
-    for g in "${files[@]}"; do
-      expected+=("$dir/$g")
-      for c in md5 sha1 sha256 sha512; do
-        expected+=("$dir/$g.$c")
-      done
+    expected+=("$dir/$f")
+    for c in md5 sha1 sha256 sha512; do
+      expected+=("$dir/$f.$c")
     done
+    if [[ $mode == signed ]]; then
+      expected+=("$dir/$f.asc")
+    fi
   done
 done
 
