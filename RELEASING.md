@@ -14,9 +14,9 @@ Each comes with its sources and javadoc jars, POM, Gradle module file, checksums
 
 ## Versions
 
-The starters share their major.minor with the Poli Page API: starter `0.13.x` talks to API `0.13`, passes the [API contract](https://github.com/poli-page/api-contract) `v0.13.0`, and requires `page.poli:sdk` of the same minor. Patch numbers are free: a fix to the starters alone is a patch, whatever the API's or the SDK's patch. A change of the API contract, a new feature, and a raise of the minimum Java or Spring Boot version are each a minor. The starters may skip minors when they have nothing to ship for one.
+The starters share their major.minor with the Poli Page API: starter `0.15.x` talks to API `0.15`, passes the [API contract](https://github.com/poli-page/api-contract) `v0.15.0`, and requires `page.poli:sdk` of the same minor. Patch numbers are free: a fix to the starters alone is a patch, whatever the API's or the SDK's patch. A change of the API contract, a new feature, and a raise of the minimum Java or Spring Boot version are each a minor. The starters may skip minors when they have nothing to ship for one.
 
-The build requires the SDK as a plain version, `page.poli:sdk:0.13.0` in `poli-page-spring-boot-autoconfigure/build.gradle.kts`, not a range such as `[0.13.0,0.14)`. The published POM and Gradle module file list the version the build resolved (see `versionMapping` in `build.gradle.kts`), so a range would not reach them anyway; in the build it would make each run take whatever 0.13.x is newest that day, and Maven also counts `0.14.0-RC1` as below `0.14`. A plain version in a POM is a soft requirement: an application that declares `page.poli:sdk:0.13.1` itself gets that patch. The minor is enforced at release time instead.
+The build requires the SDK as a plain version, `page.poli:sdk:0.15.0` in `poli-page-spring-boot-autoconfigure/build.gradle.kts`, not a range such as `[0.15.0,0.16)`. The published POM and Gradle module file list the version the build resolved (see `versionMapping` in `build.gradle.kts`), so a range would not reach them anyway; in the build it would make each run take whatever 0.15.x is newest that day, and Maven also counts `0.16.0-RC1` as below `0.16`. A plain version in a POM is a soft requirement: an application that declares `page.poli:sdk:0.15.1` itself gets that patch. The minor is enforced at release time instead.
 
 The Release workflow refuses a tag whose major.minor differs from the API contract version pinned in `.github/workflows/ci.yml` and `.github/workflows/release.yml` (both must pin the same commit), or from the `page.poli:sdk` version the build declares.
 
@@ -38,7 +38,7 @@ On 2026-10-30 none of the three artifact names existed on Maven Central (`https:
 
 1. Set `version` in `gradle.properties` (no `-SNAPSHOT`).
 2. Move `[Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD` in `CHANGELOG.md`, leave an empty `## [Unreleased]` above it, and update the compare links at the bottom.
-3. Update the version in the README install snippets, the README compatibility table, the docs site pages that name the version (`grep -rn 0.13.0 docs/src/content/docs`) and the two `v…` labels in each example app's `DemoController`.
+3. Update the version in the README install snippets, the README compatibility table, the docs site pages that name the version (`grep -rn 0.15.0 docs/src/content/docs`) and the two `v…` labels in each example app's `DemoController`.
    For a new minor `X.Y`: require `page.poli:sdk:X.Y.Z` in `poli-page-spring-boot-autoconfigure/build.gradle.kts`, pin the API contract's `vX.Y.Z` commit in `.github/workflows/ci.yml` and `.github/workflows/release.yml`, and check both with `.github/scripts/check-release-versions.sh X.Y.Z` (it needs network access to list the contract's tags).
 4. Merge `chore: release X.Y.Z` to `main` and wait for CI to go green.
 5. Optional local check, which uploads nothing: build the bundle and check its contents. CI's `central-bundle` job already does this on every PR and push to `main`, unsigned and signed with a throwaway key.
