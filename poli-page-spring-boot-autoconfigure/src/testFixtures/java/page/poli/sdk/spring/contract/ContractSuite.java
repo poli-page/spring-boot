@@ -201,9 +201,9 @@ public final class ContractSuite {
       loaded.problem = "cannot read the contract at POLI_CONTRACT=" + path + ": " + e;
       return loaded;
     }
-    if (!contract.path("formatVersion").isInt() || contract.get("formatVersion").asInt() != 1) {
+    if (!contract.path("formatVersion").isInt() || contract.get("formatVersion").asInt() != 2) {
       loaded.problem =
-          "unsupported contract formatVersion " + contract.path("formatVersion") + " (expected 1)";
+          "unsupported contract formatVersion " + contract.path("formatVersion") + " (expected 2)";
       return loaded;
     }
     for (JsonNode c : contract.path("cases")) {
