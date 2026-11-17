@@ -4,7 +4,7 @@ All notable changes to `page.poli:poli-page-spring-boot-starter` (and the siblin
 
 ## [Unreleased]
 
-## [0.15.0] - 2026-11-16
+## [0.15.0] - 2026-11-17
 
 Requires `page.poli:sdk` 0.15 (the build declares `page.poli:sdk:0.15.0`) and passes the Poli Page API contract v0.15.0. There is no 0.14 release of the starters.
 
