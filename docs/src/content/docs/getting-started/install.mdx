@@ -9,10 +9,10 @@ The starters are on Maven Central under the `page.poli` group: `poli-page-spring
 
 - Java 17 or later.
 - Spring Boot 3.2, 3.3 or 3.4, on the Jakarta namespace. Spring Boot 2.x is not supported.
-- The Poli Page Java SDK [`page.poli:sdk`](https://github.com/poli-page/sdk-java) `0.13.x`. The starter brings it in.
+- The Poli Page Java SDK [`page.poli:sdk`](https://github.com/poli-page/sdk-java) `0.15.x`. The starter brings it in.
 - A Poli Page API key. Get one at [poli.page/dashboard/keys](https://poli.page/dashboard/keys).
 
-CI builds and tests every combination of Java 17 and 21 with Spring Boot `3.2.+`, `3.3.+` and `3.4.+`. The starters share their major.minor with the Poli Page API and the SDK: starter `0.13.x` requires `page.poli:sdk` `0.13.x`.
+CI builds and tests every combination of Java 17 and 21 with Spring Boot `3.2.+`, `3.3.+` and `3.4.+`. The starters share their major.minor with the Poli Page API and the SDK: starter `0.15.x` requires `page.poli:sdk` `0.15.x`.
 
 ## Install the packages
 
@@ -22,23 +22,23 @@ Pick the artifact that matches your web stack. The MVC starter brings `spring-bo
 <dependency>
     <groupId>page.poli</groupId>
     <artifactId>poli-page-spring-boot-starter</artifactId>
-    <version>0.13.2</version>
+    <version>0.15.0</version>
 </dependency>
 ```
 
 With Gradle (Kotlin DSL):
 
 ```kotlin
-implementation("page.poli:poli-page-spring-boot-starter:0.13.2")
+implementation("page.poli:poli-page-spring-boot-starter:0.15.0")
 ```
 
 For a reactive WebFlux app, swap the artifact id:
 
 ```kotlin
-implementation("page.poli:poli-page-spring-boot-starter-webflux:0.13.2")
+implementation("page.poli:poli-page-spring-boot-starter-webflux:0.15.0")
 ```
 
-Both starters depend on `page.poli:sdk:0.13.0`, which comes with them. To take a later `0.13.x` patch of the SDK before the starter moves to it, declare `page.poli:sdk` with that version in your own build. An SDK of another minor (`0.14.x`) goes with the starter of that minor.
+Both starters depend on `page.poli:sdk:0.15.0`, which comes with them. To take a later `0.15.x` patch of the SDK before the starter moves to it, declare `page.poli:sdk` with that version in your own build. An SDK of another minor (`0.16.x`) goes with the starter of that minor.
 
 ## Set your API key
 
@@ -76,7 +76,7 @@ poli-page:
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("page.poli:poli-page-spring-boot-starter:0.13.2")
+    implementation("page.poli:poli-page-spring-boot-starter:0.15.0")
 }
 ```
 

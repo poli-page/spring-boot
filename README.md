@@ -33,10 +33,10 @@ This starter wires the Poli Page Java SDK into Spring Boot's auto-configuration 
 
 - Java 17+
 - Spring Boot 3.2 / 3.3 / 3.4 (Jakarta namespace only)
-- The Poli Page Java SDK [`page.poli:sdk`](https://github.com/poli-page/sdk-java) 0.13.x, from Maven Central (the starter brings it in)
+- The Poli Page Java SDK [`page.poli:sdk`](https://github.com/poli-page/sdk-java) 0.15.x, from Maven Central (the starter brings it in)
 - A Poli Page API key — get one at [poli.page/dashboard/keys](https://poli.page/dashboard/keys)
 
-> The starters are on Maven Central under the `page.poli` group from 0.13.0. They share their major.minor with the Poli Page API and the SDK: starter `0.13.x` requires `page.poli:sdk` `0.13.x`.
+> The starters are on Maven Central under the `page.poli` group from 0.13.0. They share their major.minor with the Poli Page API and the SDK: starter `0.15.x` requires `page.poli:sdk` `0.15.x`.
 
 ## Install
 
@@ -46,23 +46,23 @@ Maven:
 <dependency>
     <groupId>page.poli</groupId>
     <artifactId>poli-page-spring-boot-starter</artifactId>
-    <version>0.13.2</version>
+    <version>0.15.0</version>
 </dependency>
 ```
 
 Gradle (Kotlin DSL):
 
 ```kotlin
-implementation("page.poli:poli-page-spring-boot-starter:0.13.2")
+implementation("page.poli:poli-page-spring-boot-starter:0.15.0")
 ```
 
 For reactive WebFlux apps, swap the artifact id:
 
 ```kotlin
-implementation("page.poli:poli-page-spring-boot-starter-webflux:0.13.2")
+implementation("page.poli:poli-page-spring-boot-starter-webflux:0.15.0")
 ```
 
-Both starters depend on `page.poli:sdk:0.13.0`, which comes with them. To take a later `0.13.x` patch of the SDK before the starter moves to it, declare `page.poli:sdk` with that version in your own build. An SDK of another minor (`0.14.x`) goes with the starter of that minor.
+Both starters depend on `page.poli:sdk:0.15.0`, which comes with them. To take a later `0.15.x` patch of the SDK before the starter moves to it, declare `page.poli:sdk` with that version in your own build. An SDK of another minor (`0.16.x`) goes with the starter of that minor.
 
 Set the API key in your environment:
 
@@ -292,6 +292,7 @@ See [example-app/README.md](example-app/README.md) for the full route map.
 
 | Starter | SDK | Spring Boot | Java |
 |---|---|---|---|
+| `0.15.x` | `page.poli:sdk` `0.15.x` | `3.2.x` / `3.3.x` / `3.4.x` | `17` / `21` |
 | `0.13.x` | `page.poli:sdk` `0.13.x` | `3.2.x` / `3.3.x` / `3.4.x` | `17` / `21` |
 
 Spring Boot 2.x (`javax.*` namespace) is not supported. Maintenance follows the Spring Boot upstream support window — new majors land within one minor of upstream release.

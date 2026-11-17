@@ -4,6 +4,15 @@ All notable changes to `page.poli:poli-page-spring-boot-starter` (and the siblin
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-11-17
+
+Requires `page.poli:sdk` 0.15 (the build declares `page.poli:sdk:0.15.0`) and passes the Poli Page API contract v0.15.0. There is no 0.14 release of the starters.
+
+### Changed
+
+- Requires `page.poli:sdk` 0.15.0 (was 0.13.0). A later 0.15.x patch can be declared in the application's own build.
+- Contract tests run against the API contract v0.15.0 (contract format 2). The `impl` cases the example apps run are unchanged from v0.13.0.
+
 ## [0.13.2] - 2026-11-05
 
 Ships the same changes as 0.13.1, listed under 0.13.1 in CHANGELOG.md.
@@ -66,7 +75,8 @@ First release on Maven Central: `page.poli:poli-page-spring-boot-starter`, `page
 - Requires Java 17+ and Spring Boot 3.2 or newer (Jakarta namespace only; no `javax.*` fallback).
 - WebFlux artifact is opt-in — a single application typically picks one of the two starters, not both.
 
-[Unreleased]: https://github.com/poli-page/spring-boot/compare/v0.13.2...HEAD
+[Unreleased]: https://github.com/poli-page/spring-boot/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/poli-page/spring-boot/compare/v0.13.2...v0.15.0
 [0.13.2]: https://github.com/poli-page/spring-boot/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/poli-page/spring-boot/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/poli-page/spring-boot/releases/tag/v0.13.0
