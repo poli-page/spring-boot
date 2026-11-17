@@ -1,5 +1,6 @@
 # Poli Page for Spring Boot
 
+[![Maven central](https://img.shields.io/maven-metadata/v?metadataUrl=https%3A%2F%2Frepo1.maven.org%2Fmaven2%2Fpage%2Fpoli%2Fpoli-page-spring-boot-starter%2Fmaven-metadata.xml&style=flat&logo=openjdk&logoColor=ffffff&label=Maven%20central)](https://central.sonatype.com/artifact/page.poli/poli-page-spring-boot-starter)
 [![Ci](https://img.shields.io/github/actions/workflow/status/poli-page/spring-boot/ci.yml?branch=main&style=flat&logo=githubactions&logoColor=ffffff&label=Ci)](https://github.com/poli-page/spring-boot/actions/workflows/ci.yml)
 [![Codeql](https://img.shields.io/github/actions/workflow/status/poli-page/spring-boot/codeql.yml?branch=main&style=flat&logo=github&logoColor=ffffff&label=Codeql)](https://github.com/poli-page/spring-boot/actions/workflows/codeql.yml)
 [![Coverage](https://img.shields.io/codecov/c/github/poli-page/spring-boot?style=flat&logo=codecov&logoColor=ffffff&label=Coverage)](https://codecov.io/gh/poli-page/spring-boot)
