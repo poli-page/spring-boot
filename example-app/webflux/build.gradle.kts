@@ -1,5 +1,5 @@
 plugins {
-    id("org.springframework.boot") version "4.1.2"
+    id("org.springframework.boot") version "4.2.0"
 }
 
 description = "Example WebFlux Spring Boot app mirroring the MVC sibling, returning Mono / Flux types"
